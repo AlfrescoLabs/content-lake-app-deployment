@@ -3,12 +3,13 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://docs.docker.com/compose/)
 [![Status](https://img.shields.io/badge/Status-PoC-yellow.svg)]()
+[![Built on Hyland OpenArch](https://img.shields.io/badge/Built%20on-Hyland%20OpenArch-0b5394.svg)](https://github.com/Hyland/OpenArch)
 
-Self-contained deployment for Content Lake App -- ingests content from Alfresco and Nuxeo into hxpr for hybrid semantic search and RAG.
+Self-contained deployment for Content Lake App -- ingests content from Alfresco and Nuxeo into [Hyland OpenArch](https://github.com/Hyland/OpenArch) (hxpr) for hybrid semantic search and RAG.
 
 ## Content Lake Ecosystem
 
-Part of the **Content Lake** ecosystem -- a PoC for ingesting Alfresco and Nuxeo content into the [ai-ready-index](https://github.com/Hyland/ai-ready-index) engine for hybrid semantic search and RAG.
+Part of the **Content Lake** ecosystem -- a PoC for ingesting Alfresco and Nuxeo content into the [Hyland OpenArch](https://github.com/Hyland/OpenArch) (hxpr) engine for hybrid semantic search and RAG.
 
 | Repo | Role |
 |---|---|
@@ -23,7 +24,7 @@ Part of the **Content Lake** ecosystem -- a PoC for ingesting Alfresco and Nuxeo
 ```bash
 git clone https://github.com/AlfrescoLabs/content-lake-app-deployment.git
 cd content-lake-app-deployment
-./setup.sh          # checks prerequisites, pulls AI models, prompts for credentials, starts the stack
+./setup.sh          # checks prerequisites, pulls AI models, starts the stack
 ```
 
 The setup script handles everything for a first run. For manual control see [First Run](#first-run) below.
@@ -287,9 +288,8 @@ Notes:
   `RAG_OBSERVABILITY_PAYLOADS_ENABLED=true` to see what a RAG request retrieved and what it spent;
   `RAG_OBSERVABILITY_CAPTURE_CONTENT` additionally exports document content and is off by default.
   `make verify-profiles` asserts this and the other opt-in profiles never leak into a base profile.
-- hxpr needs only `mongodb` and `opensearch`, matching the reference stack in
-  `Hyland/ai-ready-index` (`server/hxpr-community-internal-app/docker-compose.yml`). The community
-  app runs async tasks in memory and stores blobs locally, so there is no LocalStack (S3/SNS/SQS)
+- hxpr (Hyland OpenArch) needs only `mongodb` and `opensearch`, matching the reference stack in
+  `Hyland/OpenArch` (`server/openarch-app/docker-compose.yml`). The app runs async tasks in memory and stores blobs locally, so there is no LocalStack (S3/SNS/SQS)
   or Nucleus mock in this stack.
 - Alfresco and hxpr share the single `opensearch` cluster as two independent indices: `alfresco*`
   (repository search, fed by `batch-indexer`) and `nuxeo_embeddings*` (hxpr semantic search). There
@@ -313,8 +313,8 @@ This repo vendors the required ACS module/config pieces locally and builds the r
 ## What This Repo Provides
 
 - Local ACS repository image customization under `acs/alfresco`
-- Vendored HXPR bootstrap assets under `hxpr/`
-- Local HXPR Docker build that clones and compiles the requested HXPR branch
+- The published Hyland OpenArch image `ghcr.io/hyland/openarch-app-jvm` (tag from `OPENARCH_VERSION`)
+- An optional Hyland OpenArch source build under `hxpr/`, enabled with `compose.hxpr-build.yaml`
 - Remote builds for `AlfrescoLabs/content-lake-app` and `AlfrescoLabs/alfresco-content-lake-ui`
 - Remote build for `AlfrescoLabs/content-lake-app-ui` (demo profile) -- no local clone needed
 - Docker Compose orchestration split across five focused `compose.*.yaml` files
@@ -331,7 +331,7 @@ Quick Start).
 | `content-lake-app` | `github.com/AlfrescoLabs/content-lake-app#main` | `CONTENT_LAKE_GIT_CONTEXT=../content-lake-app` |
 | `alfresco-content-lake-ui` | `github.com/AlfrescoLabs/alfresco-content-lake-ui#main` | `CONTENT_LAKE_UI_GIT_CONTEXT=../alfresco-content-lake-ui` |
 | `content-lake-app-ui` | `github.com/AlfrescoLabs/content-lake-app-ui#main` | `CONTENT_LAKE_APP_UI_CONTEXT=../content-lake-app-ui` |
-| `hxpr` | `github.com/Hyland/ai-ready-index` (branch from `HXPR_GIT_REF`) | `HXPR_LOCAL_IMAGE=<local-tag>` |
+| `hxpr` (Hyland OpenArch) | image `ghcr.io/hyland/openarch-app-jvm:${OPENARCH_VERSION}` | `COMPOSE_FILE=compose.yaml:compose.hxpr-build.yaml` builds `github.com/Hyland/OpenArch` (branch from `HXPR_GIT_REF`) |
 | `nuxeo-deployment` | sibling directory `../nuxeo-deployment` (required for Nuxeo profiles) | -- |
 
 To build everything from local source (useful during active development):
@@ -346,25 +346,12 @@ The `local` parameter sets all four `*_CONTEXT` overrides automatically and forc
 
 - Docker Desktop with Docker Compose v2
 - Docker Model Runner -- enable in Docker Desktop settings, or install `docker-model-plugin` on Linux
-- Access to `ghcr.io` for Hyland images
+- Outbound access to `ghcr.io` (public Hyland OpenArch image, no login needed)
 - Outbound access to GitHub so BuildKit can fetch the remote source contexts
-- `HXPR_GIT_AUTH_TOKEN` while `Hyland/ai-ready-index` is private (needed for the source clone)
-- Optional `MAVEN_USERNAME`/`MAVEN_PASSWORD`/`NEXUS_USERNAME`/`NEXUS_PASSWORD` only if the engine
-  build resolves a private artifact from the `hylandsoftware-releases` Nexus repo
 
 ## Getting Credentials
 
-The engine is built from `Hyland/ai-ready-index`. That repository is currently private, so a source
-clone needs a GitHub token; the Maven build otherwise resolves from public repositories.
-
-**`HXPR_GIT_AUTH_TOKEN`** -- required while `https://github.com/Hyland/ai-ready-index.git` is private.
-Use a GitHub classic token with `repo` scope, or a fine-grained token scoped to `Hyland/ai-ready-index`
-with read access to repository contents.
-
-**`MAVEN_USERNAME` / `MAVEN_PASSWORD` / `NEXUS_USERNAME` / `NEXUS_PASSWORD`** -- optional. Only set
-them if the build fails resolving a private artifact from the `hylandsoftware-releases` Nexus repo
-(`https://artifacts.alfresco.com/nexus/content/repositories/hylandsoftware-releases`). When unset,
-the build proceeds anonymously.
+No build credentials are needed. All source repositories and images are public.
 
 ### Credentials committed to this repository
 
@@ -385,15 +372,9 @@ triggers a full re-ingest. Put overrides for any of the above in `.env.local`, w
 
 ## First Run
 
-1. Authenticate to GitHub Container Registry:
+1. Enable Docker Model Runner in Docker Desktop.
 
-   ```bash
-   docker login ghcr.io
-   ```
-
-2. Enable Docker Model Runner in Docker Desktop.
-
-3. Prepare the AI models once:
+2. Prepare the AI models once:
 
    ```bash
    docker model pull ai/mxbai-embed-large
@@ -410,18 +391,7 @@ triggers a full re-ingest. Put overrides for any of the above in `.env.local`, w
    To use Qwen 2.5 instead, run `docker model pull ai/qwen2.5` and set
    `LLM_MODEL=ai/qwen2.5` in `.env.local`.
 
-4. Put your credentials in `.env.local` (never committed):
-
-   ```bash
-   cat >> .env.local <<'EOF'
-   MAVEN_USERNAME=...
-   MAVEN_PASSWORD=...
-   NEXUS_USERNAME=...
-   NEXUS_PASSWORD=...
-   EOF
-   ```
-
-5. Start the stack:
+3. Start the stack:
 
    ```bash
    make up-alfresco      # Alfresco only (most common)
@@ -524,7 +494,7 @@ Defaults live in `.env`. To override locally, create `.env.local` with only the 
 
 ```bash
 # Example .env.local
-HXPR_GIT_REF=main
+OPENARCH_VERSION=1.0.55
 PUBLIC_PORT=9090
 ```
 
@@ -537,10 +507,12 @@ Key overrides:
 
 | Variable | Default | Description |
 |---|---|---|
-| `HXPR_GIT_URL` | `https://github.com/Hyland/ai-ready-index.git` | Engine source repo |
-| `HXPR_GIT_REF` | `main` | Branch or tag to build |
-| `HXPR_GIT_SHA` | *(empty)* | Pin to a specific commit SHA for reproducible builds |
-| `HXPR_LOCAL_IMAGE` | `content-lake-app/hxpr-app:local` | Local image tag for the built HXPR app |
+| `OPENARCH_VERSION` | `1.0.55` | Tag of the `ghcr.io/hyland/openarch-app-jvm` engine image |
+| `COMPOSE_FILE` | *(unset)* | Set to `compose.yaml:compose.hxpr-build.yaml` to build the engine from source |
+| `HXPR_GIT_URL` | `https://github.com/Hyland/OpenArch.git` | Engine source repo (source build only) |
+| `HXPR_GIT_REF` | `main` | Branch or tag to build (source build only) |
+| `HXPR_GIT_SHA` | *(empty)* | Pin to a specific commit SHA (source build only) |
+| `HXPR_LOCAL_IMAGE` | `content-lake-app/hxpr-app:local` | Local image tag for the engine (source build only) |
 | `CONTENT_LAKE_GIT_CONTEXT` | `https://github.com/AlfrescoLabs/content-lake-app.git#main` | Java source context |
 | `CONTENT_LAKE_UI_GIT_CONTEXT` | `https://github.com/AlfrescoLabs/alfresco-content-lake-ui.git#main` | ACA extension context |
 | `CONTENT_LAKE_APP_UI_CONTEXT` | `https://github.com/AlfrescoLabs/content-lake-app-ui.git#main` | Demo UI context (override to `../content-lake-app-ui` for local dev) |
@@ -731,8 +703,7 @@ See [docs/DEPLOY_EC2.md](docs/DEPLOY_EC2.md) for a step-by-step guide to running
 
 ## Notes
 
-- The engine is built from source (`Hyland/ai-ready-index`) during `docker compose up --build` using `HXPR_GIT_REF` (default: `main`).
-- The source clone needs `HXPR_GIT_AUTH_TOKEN` while the repo is private; the Maven build otherwise resolves from public repositories (Nexus/GitHub-Packages credentials are optional build secrets, used only if a private artifact is required).
+- The engine is the published Hyland OpenArch image `ghcr.io/hyland/openarch-app-jvm`, pinned by `OPENARCH_VERSION`. The source build (`compose.hxpr-build.yaml`) needs no credentials.
 - content-lake-app authenticates to the engine with HTTP Basic (`HXPR_USERNAME` / `HXPR_PASSWORD`).
 - All Content Lake Java services (`batch-ingester`, `live-ingester`, ingesters, `rag-service`) build from source fetched directly from GitHub -- no local Java checkout needed.
 - The repository model is injected directly into the Alfresco image from this repo.
@@ -744,4 +715,4 @@ See [docs/DEPLOY_EC2.md](docs/DEPLOY_EC2.md) for a step-by-step guide to running
 
 ## Known Assumption
 
-This repo builds the `main` branch of `Hyland/ai-ready-index`. While that repository is private the source clone needs `HXPR_GIT_AUTH_TOKEN`. To build a different branch or repo URL, override `HXPR_GIT_URL` and `HXPR_GIT_REF` in `.env.local`.
+This repo is tested against the Hyland OpenArch image tag in `OPENARCH_VERSION`. A newer tag can change the engine API. To test an unreleased branch, enable `compose.hxpr-build.yaml` and set `HXPR_GIT_REF` in `.env.local`.

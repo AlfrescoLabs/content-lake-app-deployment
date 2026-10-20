@@ -21,9 +21,6 @@ Only the current `main` branch is supported. No backported security patches are 
   local convenience. Never expose this stack on a public network without changing them.
 - The nginx reverse proxy does not enforce TLS in the default configuration. See
   [docs/DEPLOY_EC2.md](docs/DEPLOY_EC2.md) for HTTPS setup guidance.
-- Build secrets (`MAVEN_PASSWORD`, `NEXUS_PASSWORD`, `HXPR_GIT_AUTH_TOKEN`) are passed via
-  Docker BuildKit secrets -- they are not baked into the resulting images, but must be protected
-  in the local environment.
 
 ## Variables That Must Be Overridden Before Non-Local Use
 

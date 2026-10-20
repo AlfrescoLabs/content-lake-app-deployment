@@ -273,21 +273,10 @@ LLM_MODEL=ai/qwen2.5
 EOF
 ```
 
-## 12. Export Build Credentials
+## 12. Build Credentials
 
-```bash
-# Required while Hyland/ai-ready-index is private (source clone)
-export HXPR_GIT_AUTH_TOKEN=<github-pat-with-repo-read>
-
-# Optional: only if the engine build resolves a private artifact from the hylandsoftware-releases Nexus repo
-export NEXUS_USERNAME=<hyland-nexus-username>
-export NEXUS_PASSWORD=<hyland-nexus-password>
-export MAVEN_USERNAME=<github-username>
-export MAVEN_PASSWORD=<github-pat-with-read:packages>
-```
-
-See the [Getting Credentials](../README.md#getting-credentials) section in the main README for
-details on obtaining each credential.
+None are needed. The Hyland OpenArch engine image (`ghcr.io/hyland/openarch-app-jvm`) and all source
+repositories are public.
 
 ## 13. Start the AI Inference Stack
 

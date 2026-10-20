@@ -218,8 +218,8 @@ export CONTENT_LAKE_GIT_CONTEXT="${LOCAL_APP_CONTEXT}"
 info "Building from CONTENT_LAKE_GIT_CONTEXT=${CONTENT_LAKE_GIT_CONTEXT}"
 
 # Build and start as two steps, never `up --build`. `--build` applies to every service being started,
-# dependencies included, so it rebuilds hxpr-app -- whose build clones the private ai-ready-index and
-# needs HXPR_GIT_AUTH_TOKEN. `--no-deps` then starts only this service, since the base stack is
+# dependencies included, so it rebuilds every dependency image, including the slow ACS image.
+# `--no-deps` then starts only this service, since the base stack is
 # already up and healthy.
 if ! dc build plugin-batch-ingester; then
   fail "T3: plugin-batch-ingester image did not build"

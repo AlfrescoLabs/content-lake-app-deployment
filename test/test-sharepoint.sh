@@ -261,7 +261,7 @@ export CONTENT_LAKE_GIT_CONTEXT="${LOCAL_APP_CONTEXT}"
 
 section "Start the mock Graph service"
 # Build and start as two steps, never `up --build`: `--build` applies to dependencies too, and would
-# rebuild hxpr-app, whose build clones the private ai-ready-index.
+# rebuild every dependency image, including the slow ACS image.
 if ! dc build mock-graph; then
   fail "S5: the mock-graph image did not build"
   exit 1

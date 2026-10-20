@@ -2,8 +2,10 @@
 # Part of the content-lake-app stack; loaded via include: in compose.yaml.
 # Profiles: alfresco, nuxeo, full, demo (opensearch-dashboards: debug)
 #
-# The hxpr community app needs MongoDB and OpenSearch only, matching the reference stack in
-# Hyland/ai-ready-index (server/hxpr-community-internal-app/docker-compose.yml).
+# The engine is Hyland OpenArch (hxpr), https://github.com/Hyland/OpenArch. It needs MongoDB and
+# OpenSearch only, matching the reference stack in server/openarch-app/docker-compose.yml.
+# To build the engine from source instead of pulling the published image, add
+# compose.hxpr-build.yaml (see that file).
 
 services:
 
@@ -62,26 +64,8 @@ services:
 
   hxpr-app:
     profiles: [alfresco, nuxeo, full, demo, platform]
-    image: "${HXPR_LOCAL_IMAGE:-content-lake-app/hxpr-app:local}"
+    image: "ghcr.io/hyland/openarch-app-jvm:${OPENARCH_VERSION:-1.0.55}"
     restart: unless-stopped
-    build:
-      context: .
-      dockerfile: ./hxpr/Dockerfile
-      args:
-        HXPR_GIT_URL: ${HXPR_GIT_URL:-https://github.com/Hyland/ai-ready-index.git}
-        HXPR_GIT_REF: ${HXPR_GIT_REF:-main}
-        HXPR_GIT_SHA: ${HXPR_GIT_SHA:-}
-      secrets:
-        - source: hxpr_git_auth_token
-          target: hxpr_git_auth_token
-        - source: maven_username
-          target: maven_username
-        - source: maven_password
-          target: maven_password
-        - source: nexus_username
-          target: nexus_username
-        - source: nexus_password
-          target: nexus_password
     environment:
       JAVA_OPTIONS: -Dnuxeo.mongodb.server=mongodb:27017
       NUXEO_MONGODB_SERVER: mongodb:27017
@@ -92,7 +76,7 @@ services:
       opensearch:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health | grep -q UP || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 10

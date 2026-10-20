@@ -1,0 +1,20 @@
+# compose.hxpr-build.yaml - build the engine (Hyland OpenArch) from source instead of pulling
+# ghcr.io/hyland/openarch-app-jvm. Use it for an unreleased branch or commit.
+#
+# Enable it in .env.local:
+#   COMPOSE_FILE=compose.yaml:compose.hxpr-build.yaml
+#   HXPR_GIT_REF=main
+#   HXPR_GIT_SHA=        # optional commit pin
+#
+# The build clones https://github.com/Hyland/OpenArch and needs no credentials.
+
+services:
+  hxpr-app:
+    image: "${HXPR_LOCAL_IMAGE:-content-lake-app/hxpr-app:local}"
+    build:
+      context: .
+      dockerfile: ./hxpr/Dockerfile
+      args:
+        HXPR_GIT_URL: ${HXPR_GIT_URL:-https://github.com/Hyland/OpenArch.git}
+        HXPR_GIT_REF: ${HXPR_GIT_REF:-main}
+        HXPR_GIT_SHA: ${HXPR_GIT_SHA:-}

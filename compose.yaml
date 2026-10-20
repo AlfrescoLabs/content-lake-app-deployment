@@ -15,19 +15,6 @@ volumes:
   # Only attached by the opt-in `connector` profile, so it is unused by every base deployment.
   connector-state-data:
 
-# ─── Build secrets ────────────────────────────────────────────────────────────
-secrets:
-  hxpr_git_auth_token:
-    environment: HXPR_GIT_AUTH_TOKEN
-  maven_username:
-    environment: MAVEN_USERNAME
-  maven_password:
-    environment: MAVEN_PASSWORD
-  nexus_username:
-    environment: NEXUS_USERNAME
-  nexus_password:
-    environment: NEXUS_PASSWORD
-
 # ─── Compose modules ──────────────────────────────────────────────────────────
 #
 # Profiles:

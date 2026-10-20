@@ -25,11 +25,10 @@ NUXEO_DIR="$(cd "$DEPLOY_DIR/../nuxeo-deployment" 2>/dev/null && pwd || true)"
 # Pass USE_LOCAL=0 to use the images/contexts baked into .env instead.
 #
 # NOTE: we deliberately do NOT use `make up-<profile> local`. That target forces a
-# `--no-cache` rebuild of the WHOLE profile, including hxpr-app, whose Dockerfile clones the
-# Hyland/ai-ready-index repo (private today, so the clone needs HXPR_GIT_AUTH_TOKEN). Instead we
-# build ONLY the local-source Content Lake app images (which is all a source change affects) and
-# then `up` WITHOUT `--build`, so the prebuilt hxpr/ACS images are reused. Build those
-# credential-gated images once via `make up-alfresco` before running this harness.
+# `--no-cache` rebuild of the WHOLE profile, including the slow ACS image. Instead we build ONLY
+# the local-source Content Lake app images (which is all a source change affects) and then `up`
+# WITHOUT `--build`, so the prebuilt ACS image and the pulled hxpr image are reused. Build the ACS
+# image once via `make up-alfresco` before running this harness.
 USE_LOCAL="${USE_LOCAL:-1}"
 
 # The deployment proxy terminates TLS and 301-redirects http -> https, so probe and test over
@@ -155,7 +154,7 @@ stack_up() {
     # shellcheck disable=SC2086
     dc --profile "$profile" build $services || return 1
   fi
-  # `up` without --build: prebuilt hxpr/ACS images are reused; only missing images build.
+  # `up` without --build: the pulled hxpr image and the prebuilt ACS image are reused; only missing images build.
   dc --profile "$profile" up -d
 }
 

@@ -64,7 +64,7 @@ created while it runs -- no migration or reindex-from-Solr, no cursor seeding. T
 search scope (`alfresco-archive`) is **not** implemented by the OpenSearch module.
 
 > OpenSearch is pinned to `2.19.6` (`OPENSEARCH_TAG`), the version the hxpr reference stack uses
-> (`Hyland/ai-ready-index`, `server/hxpr-community-internal-app/docker-compose.yml`). That is still
+> (`Hyland/OpenArch`, `server/openarch-app/docker-compose.yml`). That is still
 > a patch line above Alfresco's documented support matrix (OpenSearch 2.11.1 / ES 8.17.x) but within
 > the same major version; production should pin a supported version or run separate clusters.
 > Do not move this cluster to OpenSearch 3.x: 3.x enables `index.knn.derived_source` by default,

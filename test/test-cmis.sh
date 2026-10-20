@@ -364,7 +364,7 @@ export CONTENT_LAKE_GIT_CONTEXT="${LOCAL_APP_CONTEXT}"
 info "Ingesting ${CMIS_ROOT_PATH} over CMIS from ${CMIS_URL}"
 
 # Build and start as two steps, never `up --build`: `--build` applies to dependencies too, and would
-# rebuild hxpr-app, whose build clones the private ai-ready-index.
+# rebuild every dependency image, including the slow ACS image.
 if ! dc build plugin-batch-ingester; then
   fail "C8: plugin-batch-ingester image did not build"
   exit 1

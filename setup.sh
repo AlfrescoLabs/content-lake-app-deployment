@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================
 # Content Lake — First-run setup script
-# Validates prerequisites, configures credentials, pulls AI
-# models, and starts the stack.
+# Validates prerequisites, pulls AI models,
+# and starts the stack.
 # Usage: ./setup.sh [alfresco|nuxeo|full|demo|platform]  (default: alfresco)
 # =============================================================
 set -euo pipefail
@@ -55,43 +55,9 @@ done
 ( set -a; . ./.env; if [ -f .env.local ]; then . ./.env.local; fi; set +a
   scripts/ensure-llm-model.sh && ok "LLM_MODEL ${LLM_MODEL} ready" )
 
-# ── Check credentials ─────────────────────────────────────────────────────────
-hdr "4/5  Checking build credentials..."
-
-MISSING_VARS=()
-for var in MAVEN_USERNAME MAVEN_PASSWORD NEXUS_USERNAME NEXUS_PASSWORD; do
-  # Check env, then .env.local
-  if [ -z "${!var:-}" ]; then
-    if [ -f .env.local ] && grep -q "^${var}=" .env.local; then
-      : # found in .env.local
-    else
-      MISSING_VARS+=("$var")
-    fi
-  fi
-done
-
-if [ ${#MISSING_VARS[@]} -gt 0 ]; then
-  warn "Missing credentials: ${MISSING_VARS[*]}"
-  echo ""
-  echo "   These are required to build the HXPR image from source."
-  echo "   Add them to .env.local (never commit this file):"
-  echo ""
-  if [ ! -f .env.local ]; then
-    echo "   Creating .env.local..."
-    touch .env.local
-  fi
-  for var in "${MISSING_VARS[@]}"; do
-    read -rp "   $var: " value
-    echo "${var}=${value}" >> .env.local
-  done
-  ok "Credentials saved to .env.local"
-else
-  ok "All required credentials are set"
-fi
-
 # ── Nuxeo prerequisite ────────────────────────────────────────────────────────
 if [[ "$PROFILE" == "nuxeo" || "$PROFILE" == "full" || "$PROFILE" == "demo" ]]; then
-  hdr "4b/5  Nuxeo prerequisite check..."
+  hdr "4/5  Nuxeo prerequisite check..."
   NUXEO_DIR="../nuxeo-deployment"
   if [ ! -d "$NUXEO_DIR" ]; then
     warn "Nuxeo server not found at $NUXEO_DIR"
