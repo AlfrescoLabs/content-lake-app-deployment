@@ -7,7 +7,7 @@
 # `200 {"status":"DOWN"}` while its dependencies are still starting (see SemanticSearchController.health),
 # so the 200 check returned immediately and the Alfresco suite began against a service that was not
 # serving. The B-series then failed on documents the ingester had never discovered, which reads as a
-# code regression and is not one. See aborroy/content-lake-app-deployment#20.
+# code regression and is not one. See AlfrescoLabs/content-lake-app-deployment#20.
 #
 # Callers must have CURL_TLS set ("-k" when the proxy terminates TLS with a self-signed certificate).
 

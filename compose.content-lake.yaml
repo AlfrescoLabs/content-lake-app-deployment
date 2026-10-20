@@ -20,7 +20,7 @@ services:
       dockerfile: dockerfiles/Dockerfile
       target: batch-ingester
       additional_contexts:
-        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/aborroy/content-lake-app.git#main}"
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     environment:
       ACTIVEMQ_URL: ${CONTENT_LAKE_PERMISSION_SYNC_BROKER_URL:-tcp://activemq:61616}
       ACTIVEMQ_USER: ${ACTIVEMQ_USER}
@@ -90,7 +90,7 @@ services:
       dockerfile: dockerfiles/Dockerfile
       target: live-ingester
       additional_contexts:
-        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/aborroy/content-lake-app.git#main}"
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     environment:
       ACTIVEMQ_URL: tcp://activemq:61616
       ACTIVEMQ_USER: ${ACTIVEMQ_USER}
@@ -150,7 +150,7 @@ services:
       dockerfile: dockerfiles/Dockerfile
       target: rag-service
       additional_contexts:
-        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/aborroy/content-lake-app.git#main}"
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     environment:
       # Overridable, with the stack's own values as the defaults, so nothing changes for a normal run. Set
       # either to the empty string and that source's caller authentication declines without a call, which is
@@ -400,7 +400,7 @@ services:
       dockerfile: dockerfiles/Dockerfile
       target: nuxeo-batch-ingester
       additional_contexts:
-        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/aborroy/content-lake-app.git#main}"
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     environment:
       NUXEO_URL: http://host.docker.internal:8081/nuxeo
       NUXEO_USERNAME: ${NUXEO_USERNAME:-Administrator}
@@ -468,7 +468,7 @@ services:
       dockerfile: dockerfiles/Dockerfile
       target: plugin-batch-ingester
       additional_contexts:
-        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/aborroy/content-lake-app.git#main}"
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     ports:
       # Published rather than reached through the proxy's `?sourceType=` map, which cannot serve this
       # service: the key would have to be the source type the mounted jar declares, and that is unknown
@@ -748,7 +748,7 @@ services:
       dockerfile: dockerfiles/Dockerfile
       target: mock-graph
       additional_contexts:
-        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/aborroy/content-lake-app.git#main}"
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     ports:
       # Published so the fixtures can be inspected with curl while diagnosing a run.
       - "${MOCK_GRAPH_PORT:-8099}:8099"
@@ -775,7 +775,7 @@ services:
       dockerfile: dockerfiles/Dockerfile
       target: nuxeo-live-ingester
       additional_contexts:
-        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/aborroy/content-lake-app.git#main}"
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     environment:
       NUXEO_URL: http://host.docker.internal:8081/nuxeo
       NUXEO_USERNAME: ${NUXEO_USERNAME:-Administrator}

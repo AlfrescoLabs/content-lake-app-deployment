@@ -119,7 +119,7 @@ upload_file() {
 # ANCESTOR query does. Gating on PARENT let the suite proceed while the ingester still found nothing,
 # which showed up as `Descendant discovery ... found 0 file(s) (attempt 9/10)`, then
 # `metadataIngestedCount=0`, then B5-B9 failing on documents that were never ingested -- reading as a
-# pipeline regression rather than as this race. See aborroy/content-lake-app-deployment#20.
+# pipeline regression rather than as this race. See AlfrescoLabs/content-lake-app-deployment#20.
 #
 # ANCESTOR is also the more useful count: it includes nested descendants, which is what the ingester
 # will actually sync. For a flat fixture folder the two counts are identical.

@@ -12,16 +12,16 @@ Part of the **Content Lake** ecosystem -- a PoC for ingesting Alfresco and Nuxeo
 
 | Repo | Role |
 |---|---|
-| [content-lake-app](https://github.com/aborroy/content-lake-app) | Java ingestion pipeline and RAG service |
-| **[content-lake-app-deployment](https://github.com/aborroy/content-lake-app-deployment)** | Docker Compose stack that wires everything together (this repo) |
-| [alfresco-content-lake-ui](https://github.com/aborroy/alfresco-content-lake-ui) | ACA/ADW extension: semantic search + RAG chat sidebar |
-| [content-lake-app-ui](https://github.com/aborroy/content-lake-app-ui) | Standalone demo UI (Alfresco + Nuxeo dual auth) |
+| [content-lake-app](https://github.com/AlfrescoLabs/content-lake-app) | Java ingestion pipeline and RAG service |
+| **[content-lake-app-deployment](https://github.com/AlfrescoLabs/content-lake-app-deployment)** | Docker Compose stack that wires everything together (this repo) |
+| [alfresco-content-lake-ui](https://github.com/AlfrescoLabs/alfresco-content-lake-ui) | ACA/ADW extension: semantic search + RAG chat sidebar |
+| [content-lake-app-ui](https://github.com/AlfrescoLabs/content-lake-app-ui) | Standalone demo UI (Alfresco + Nuxeo dual auth) |
 | [nuxeo-deployment](https://github.com/aborroy/nuxeo-deployment) | Local Nuxeo + PostgreSQL stack (required for Nuxeo profiles) |
 
 ## Quick start
 
 ```bash
-git clone https://github.com/aborroy/content-lake-app-deployment.git
+git clone https://github.com/AlfrescoLabs/content-lake-app-deployment.git
 cd content-lake-app-deployment
 ./setup.sh          # checks prerequisites, pulls AI models, prompts for credentials, starts the stack
 ```
@@ -315,8 +315,8 @@ This repo vendors the required ACS module/config pieces locally and builds the r
 - Local ACS repository image customization under `acs/alfresco`
 - Vendored HXPR bootstrap assets under `hxpr/`
 - Local HXPR Docker build that clones and compiles the requested HXPR branch
-- Remote builds for `aborroy/content-lake-app` and `aborroy/alfresco-content-lake-ui`
-- Remote build for `aborroy/content-lake-app-ui` (demo profile) -- no local clone needed
+- Remote builds for `AlfrescoLabs/content-lake-app` and `AlfrescoLabs/alfresco-content-lake-ui`
+- Remote build for `AlfrescoLabs/content-lake-app-ui` (demo profile) -- no local clone needed
 - Docker Compose orchestration split across five focused `compose.*.yaml` files
 - A single nginx config template replacing per-mode nginx files
 
@@ -328,9 +328,9 @@ Quick Start).
 
 | Repo | Default source | Local override env var |
 |---|---|---|
-| `content-lake-app` | `github.com/aborroy/content-lake-app#main` | `CONTENT_LAKE_GIT_CONTEXT=../content-lake-app` |
-| `alfresco-content-lake-ui` | `github.com/aborroy/alfresco-content-lake-ui#main` | `CONTENT_LAKE_UI_GIT_CONTEXT=../alfresco-content-lake-ui` |
-| `content-lake-app-ui` | `github.com/aborroy/content-lake-app-ui#main` | `CONTENT_LAKE_APP_UI_CONTEXT=../content-lake-app-ui` |
+| `content-lake-app` | `github.com/AlfrescoLabs/content-lake-app#main` | `CONTENT_LAKE_GIT_CONTEXT=../content-lake-app` |
+| `alfresco-content-lake-ui` | `github.com/AlfrescoLabs/alfresco-content-lake-ui#main` | `CONTENT_LAKE_UI_GIT_CONTEXT=../alfresco-content-lake-ui` |
+| `content-lake-app-ui` | `github.com/AlfrescoLabs/content-lake-app-ui#main` | `CONTENT_LAKE_APP_UI_CONTEXT=../content-lake-app-ui` |
 | `hxpr` | `github.com/Hyland/ai-ready-index` (branch from `HXPR_GIT_REF`) | `HXPR_LOCAL_IMAGE=<local-tag>` |
 | `nuxeo-deployment` | sibling directory `../nuxeo-deployment` (required for Nuxeo profiles) | -- |
 
@@ -541,9 +541,9 @@ Key overrides:
 | `HXPR_GIT_REF` | `main` | Branch or tag to build |
 | `HXPR_GIT_SHA` | *(empty)* | Pin to a specific commit SHA for reproducible builds |
 | `HXPR_LOCAL_IMAGE` | `content-lake-app/hxpr-app:local` | Local image tag for the built HXPR app |
-| `CONTENT_LAKE_GIT_CONTEXT` | `https://github.com/aborroy/content-lake-app.git#main` | Java source context |
-| `CONTENT_LAKE_UI_GIT_CONTEXT` | `https://github.com/aborroy/alfresco-content-lake-ui.git#main` | ACA extension context |
-| `CONTENT_LAKE_APP_UI_CONTEXT` | `https://github.com/aborroy/content-lake-app-ui.git#main` | Demo UI context (override to `../content-lake-app-ui` for local dev) |
+| `CONTENT_LAKE_GIT_CONTEXT` | `https://github.com/AlfrescoLabs/content-lake-app.git#main` | Java source context |
+| `CONTENT_LAKE_UI_GIT_CONTEXT` | `https://github.com/AlfrescoLabs/alfresco-content-lake-ui.git#main` | ACA extension context |
+| `CONTENT_LAKE_APP_UI_CONTEXT` | `https://github.com/AlfrescoLabs/content-lake-app-ui.git#main` | Demo UI context (override to `../content-lake-app-ui` for local dev) |
 | `ACA_TAG` | `7.4.1` | Alfresco Content App version |
 | `PUBLIC_PORT` | `80` | Host port for the proxy |
 | `DEMO_UI_PORT` | `4200` | Direct host port for the demo UI container |

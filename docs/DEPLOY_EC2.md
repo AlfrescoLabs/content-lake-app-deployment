@@ -245,7 +245,7 @@ sudo chown $USER:$USER /opt/models
 ## 9. Clone the Repository
 
 ```bash
-git clone https://github.com/aborroy/content-lake-app-deployment.git
+git clone https://github.com/AlfrescoLabs/content-lake-app-deployment.git
 cd content-lake-app-deployment
 ```
 

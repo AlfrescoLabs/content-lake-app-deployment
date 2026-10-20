@@ -50,7 +50,7 @@ services:
     build:
       context: ./acs/alfresco
       additional_contexts:
-        content_lake_app: ${CONTENT_LAKE_ACS_GIT_CONTEXT:-https://github.com/aborroy/content-lake-app.git#main}
+        content_lake_app: ${CONTENT_LAKE_ACS_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}
       args:
         ALFRESCO_TAG: ${ALFRESCO_CE_TAG:-26.2.0}
     environment:

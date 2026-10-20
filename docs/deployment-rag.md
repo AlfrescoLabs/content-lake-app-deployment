@@ -519,7 +519,7 @@ The service account credentials (`ALFRESCO_INTERNAL_USERNAME` / `ALFRESCO_INTERN
 `NUXEO_USERNAME` / `NUXEO_PASSWORD`) are used only for internal operations (group membership
 lookups, metadata enrichment) -- they are never used to validate incoming requests.
 
-[`docs/security-model.md`](https://github.com/aborroy/content-lake-app/blob/main/docs/security-model.md)
+[`docs/security-model.md`](https://github.com/AlfrescoLabs/content-lake-app/blob/main/docs/security-model.md)
 in `content-lake-app` is the full picture: which component enforces read access and why, what the model
 explicitly does not do, and a hardening checklist for a deployment reachable by anyone other than you.
 

@@ -115,7 +115,7 @@ wait_for_url() {
 dc() {
   # The build contexts are re-applied AFTER sourcing .env, not merely exported above. `set -a; . ./.env`
   # assigns unconditionally, and .env pins
-  # CONTENT_LAKE_GIT_CONTEXT=https://github.com/aborroy/content-lake-app.git#main, so an export made
+  # CONTENT_LAKE_GIT_CONTEXT=https://github.com/AlfrescoLabs/content-lake-app.git#main, so an export made
   # before this function is overwritten and USE_LOCAL=1 silently builds and tests origin/main instead of
   # the sibling checkout. That failure is invisible: the build succeeds, the suites pass, and the
   # retrieval gate reports no delta because it measured the unchanged code.
