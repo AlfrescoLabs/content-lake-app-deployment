@@ -6,6 +6,14 @@
 #   make up-nuxeo           Nuxeo + HXPR + RAG  (~9 services, 2 from ../nuxeo-deployment)
 #   make up-full            Alfresco + Nuxeo + HXPR + RAG  (~18 services)
 #   make up-demo            Full + standalone demo UI at /  (~19 services)
+#   make up-alfresco-2      Alfresco + a second, independent Alfresco + HXPR + RAG  (~21 services).
+#                           Loads compose.alfresco-2.yaml on top of compose.yaml with profiles alfresco and
+#                           alfresco-2: postgres-2, activemq-2, alfresco-2, batch-indexer-2, batch-ingester-2,
+#                           live-ingester-2 and content-app-2, served on :8082 (ALFRESCO_2_PUBLIC_PORT).
+#                           The JVM services of both instances get a mem_limit, ~13.5g in total by default.
+#                           rag-service lists both as rag.sources[]; set ALFRESCO_1_SOURCE_ID and
+#                           ALFRESCO_2_SOURCE_ID to their repository ids once both have bootstrapped
+#                           (README.md, "Second Alfresco instance").
 #   make up-platform        Platform only: hxpr + RAG + demo UI, no Alfresco and no Nuxeo (~6 services).
 #                           The base profile for running a connector jar as the single source: pair it with
 #                           --profile connector. Nothing can authenticate a caller in this shape yet, so
@@ -148,10 +156,19 @@ endif
 
 DC := $(LOAD_ENV) docker compose $(ENV_ARGS)
 
-.PHONY: help up-alfresco up-nuxeo up-full up-demo up-platform down logs ps config clean start-ai stop-ai olmo3-local ensure-llm local verify-profiles
+# The second Alfresco instance is an override file, not an include, so it is appended to COMPOSE_FILE
+# rather than passed with -f: -f would drop a COMPOSE_FILE set in .env.local (compose.hxpr-build.yaml).
+ALFRESCO_2_COMPOSE_FILE := COMPOSE_FILE="$${COMPOSE_FILE:-compose.yaml}:compose.alfresco-2.yaml"
+ALFRESCO_2_SERVICES := postgres-2 activemq-2 alfresco-2 batch-indexer-2 batch-ingester-2 live-ingester-2 content-app-2
+
+# Commands that act on whatever is running (down, clean, logs, ps) load the override too, so the second
+# instance's containers and volumes are not left behind. Loading it adds nothing to a base profile.
+DC_ALL := $(LOAD_ENV) $(ALFRESCO_2_COMPOSE_FILE) docker compose $(ENV_ARGS)
+
+.PHONY: help up-alfresco up-alfresco-2 up-nuxeo up-full up-demo up-platform down logs ps config clean start-ai stop-ai olmo3-local ensure-llm local verify-profiles
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | \
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' Makefile | \
 	  awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 local: ## Placeholder target for 'local' parameter — use: make up-demo local
@@ -170,6 +187,20 @@ endif
 	  NGINX_ROOT_DIRECTIVE="return 302 /aca/;" \
 	  docker compose $(ENV_ARGS) --profile alfresco up --build -d
 	@$(call _urls,alfresco)
+
+up-alfresco-2: ensure-llm ## Alfresco + a second, independent Alfresco on :8082 (opt-in alfresco-2 profile)
+ifdef USE_LOCAL
+	@echo "-> Building from local sibling directories (../content-lake-app, ../alfresco-content-lake-ui)..."
+	$(LOAD_ENV) $(LOCAL_ENV_OVERRIDES) $(ALFRESCO_2_COMPOSE_FILE) \
+	  NGINX_SYNC_DEFAULT_BACKEND=batch-ingester:9090 \
+	  NGINX_ROOT_DIRECTIVE="return 302 /aca/;" \
+	  docker compose $(ENV_ARGS) --profile alfresco --profile alfresco-2 build --no-cache
+endif
+	$(LOAD_ENV) $(LOCAL_ENV_OVERRIDES) $(ALFRESCO_2_COMPOSE_FILE) \
+	  NGINX_SYNC_DEFAULT_BACKEND=batch-ingester:9090 \
+	  NGINX_ROOT_DIRECTIVE="return 302 /aca/;" \
+	  docker compose $(ENV_ARGS) --profile alfresco --profile alfresco-2 up --build -d
+	@$(call _urls,alfresco-2)
 
 up-nuxeo: ensure-llm ## Nuxeo source — start ../nuxeo-deployment first, then this
 	@echo "→ Bringing up Nuxeo server (../nuxeo-deployment)..."
@@ -235,14 +266,14 @@ endif
 	@$(call _urls,platform)
 
 down: ## Stop and remove containers (data volumes preserved)
-	$(DC) --profile '*' down
+	$(DC_ALL) --profile '*' down
 	$(LOAD_ENV) docker compose -f ../nuxeo-deployment/compose.yaml down 2>/dev/null || true
 
 logs: ## Follow logs for all running services
-	$(DC) logs -f
+	$(DC_ALL) logs -f
 
 ps: ## Show running services and health status
-	$(DC) ps
+	$(DC_ALL) ps
 
 config: ## Dry-run: render the resolved compose configuration
 	$(LOAD_ENV) $(LOCAL_ENV_OVERRIDES) \
@@ -266,7 +297,7 @@ stop-ai: ## Stop TEI + vLLM inference stack
 clean: ## Stop containers and remove ALL volumes [DESTRUCTIVE — wipes all data]
 	@echo "WARNING: This removes all persistent data (Alfresco, MongoDB, OpenSearch, etc.)"
 	@read -p "Are you sure? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
-	$(DC) --profile '*' down -v
+	$(DC_ALL) --profile '*' down -v
 	$(LOAD_ENV) docker compose -f ../nuxeo-deployment/compose.yaml down -v 2>/dev/null || true
 
 verify-profiles: ## Assert every opt-in profile stays opt-in (no service leaks into a base profile)
@@ -289,6 +320,22 @@ verify-profiles: ## Assert every opt-in profile stays opt-in (no service leaks i
 	  case " $$services " in \
 	    *" $$service "*) echo "ok: --profile $$profile adds $$service" ;; \
 	    *) echo "FAIL: --profile $$profile does not add $$service"; fail=1 ;; \
+	  esac; \
+	done; \
+	for profile in alfresco nuxeo full demo platform; do \
+	  services=$$($(DC_ALL) --profile $$profile config --services 2>/dev/null | sort | tr '\n' ' '); \
+	  for optin in $(ALFRESCO_2_SERVICES); do \
+	    case " $$services " in \
+	      *" $$optin "*) echo "FAIL: $$optin is in the '$$profile' profile with compose.alfresco-2.yaml loaded but should be opt-in only"; fail=1 ;; \
+	    esac; \
+	  done; \
+	  echo "ok: profile '$$profile' has no alfresco-2 service with compose.alfresco-2.yaml loaded"; \
+	done; \
+	services=$$($(DC_ALL) --profile demo --profile alfresco-2 config --services 2>/dev/null | tr '\n' ' '); \
+	for service in $(ALFRESCO_2_SERVICES); do \
+	  case " $$services " in \
+	    *" $$service "*) echo "ok: --profile alfresco-2 adds $$service" ;; \
+	    *) echo "FAIL: --profile alfresco-2 does not add $$service"; fail=1 ;; \
 	  esac; \
 	done; \
 	exit $$fail
@@ -320,7 +367,13 @@ define _urls
 	      echo "  ACA      → $$base/aca/"; \
 	      echo "  Alfresco → $$base/alfresco"; \
 	    fi; \
-	    if [ "$(1)" != "alfresco" ]; then \
+	    if [ "$(1)" = "alfresco-2" ]; then \
+	      echo "  ACA 2      -> http://$${SERVER_NAME:-localhost}:$${ALFRESCO_2_PUBLIC_PORT:-8082}/aca/"; \
+	      echo "  Alfresco 2 -> http://$${SERVER_NAME:-localhost}:$${ALFRESCO_2_PUBLIC_PORT:-8082}/alfresco"; \
+	      echo ""; \
+	      echo "  Once both are healthy, read each repository.id from /alfresco/api/discovery and set"; \
+	      echo "  ALFRESCO_1_SOURCE_ID and ALFRESCO_2_SOURCE_ID, then run make up-alfresco-2 again."; \
+	    elif [ "$(1)" != "alfresco" ]; then \
 	      echo "  Nuxeo    → $$base/nuxeo/ui/"; \
 	    fi; \
 	    if [ "$(1)" = "demo" ]; then \

@@ -33,6 +33,9 @@ http {
         default    ${NGINX_SYNC_DEFAULT_BACKEND};
         ""         ${NGINX_SYNC_DEFAULT_BACKEND};
         alfresco   batch-ingester:9090;
+        # The second Alfresco instance (opt-in alfresco-2 profile). Resolved per request like every other
+        # backend here, so it answers 502 on a stack without that profile.
+        alfresco2  batch-ingester-2:9090;
         nuxeo      nuxeo-batch-ingester:9093;
         ${NGINX_CONNECTOR_SOURCE_TYPE} plugin-batch-ingester:9096;
     }
@@ -377,4 +380,8 @@ http {
         }
     }
     ##HTTPS_SERVER_BLOCK_END##
+
+    # Extra server blocks are spliced in after this line by an override file's proxy command (the
+    # alfresco-2 profile inserts nginx/alfresco-2.conf.template here). Without one it stays a comment.
+    ##EXTRA_SERVER_BLOCKS##
 }

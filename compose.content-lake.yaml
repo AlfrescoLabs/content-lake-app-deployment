@@ -782,7 +782,10 @@ services:
       NUXEO_PASSWORD: ${NUXEO_PASSWORD:-Administrator}
       NUXEO_SOURCE_ID: ${NUXEO_SOURCE_ID:-local}
       NUXEO_LIVE_AUDIT_ENABLED: ${NUXEO_LIVE_AUDIT_ENABLED:-true}
-      NUXEO_LIVE_AUDIT_CURSOR_FILE: ${NUXEO_LIVE_AUDIT_CURSOR_FILE:-/data/audit-cursor.json}
+      # Empty: one cursor file per source, /data/audit-cursor-<NUXEO_SOURCE_ID>.json, so two Nuxeo live
+      # ingesters on one volume never overwrite each other. The single /data/audit-cursor.json of an older
+      # deployment is read once on upgrade.
+      NUXEO_LIVE_AUDIT_CURSOR_FILE: ${NUXEO_LIVE_AUDIT_CURSOR_FILE:-}
       NUXEO_INCLUDED_ROOT_1: ${NUXEO_INCLUDED_ROOT_1:-/default-domain/workspaces}
       # No repository transform service backs this source, so extraction is in-process Tika
       # unless an engine is configured. Empty = unchanged behaviour. Point it at the

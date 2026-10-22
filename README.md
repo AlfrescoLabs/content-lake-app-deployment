@@ -88,6 +88,103 @@ uses `static-token` and proves nothing about app-only token acquisition. It also
 tenant honours the `Prefer` headers, which is what `SHAREPOINT_PERMISSIONS_MODE=hierarchical` depends on.
 Both are covered by the connector's own unit tests against the real library, not here.
 
+### Second Alfresco instance (`alfresco-2`)
+
+`alfresco-2` is an opt-in profile that runs a second, independent Alfresco next to the first. It has its
+own ingesters and writes to the same hxpr, so one stack holds two Alfresco sources. It is a test bed for
+several sources of the same type.
+
+```bash
+make up-alfresco-2     # alfresco profile + the second instance (~21 services)
+```
+
+It lives in an override file, [`compose.alfresco-2.yaml`](compose.alfresco-2.yaml), not in the `include:`
+list. The target adds it to `COMPOSE_FILE`. To call Compose directly:
+
+```bash
+COMPOSE_FILE=compose.yaml:compose.alfresco-2.yaml \
+  docker compose --env-file .env.local --profile alfresco --profile alfresco-2 up -d --build
+```
+
+The base profiles do not change. Without the override file, `make up-alfresco`, `make up-full` and
+`make up-demo` render exactly as before. `make verify-profiles` checks that the new services are absent
+from every base profile even with the file loaded.
+
+What the profile adds:
+
+- `postgres-2`, `activemq-2`, `alfresco-2`, `batch-indexer-2`, `batch-ingester-2`, `live-ingester-2` and
+  `content-app-2`. They are copies of the first instance with every host name replaced.
+- Fresh volumes `postgres-data-2` and `alf-repo-data-2`. Never copy the first instance's volumes into
+  them: the repository id is created on the first bootstrap, so a copy would give both instances the same
+  id.
+- Its own OpenSearch indices in the shared cluster: `alfresco2`, `alfresco2-archive`,
+  `alfresco2-reindex-state` and `alfresco2-reindex-dead-letter` (`ALFRESCO_2_INDEX_NAME` sets the prefix).
+  The first instance keeps `alfresco*`. Note that the pattern `alfresco*` matches both sets.
+- `transform-core-aio` is shared. The community repository calls it over HTTP only, so it does not need
+  the second instance's broker.
+- In `rag-service`, both instances as `rag.sources[]` entries (`RAG_SOURCES_0_*` and `RAG_SOURCES_1_*`).
+
+Ports. The proxy gets a second server block, on its own port, with its own `/alfresco/`, `/aca/` and
+`/api/content-lake` routes. A path prefix such as `/alfresco2/` does not work, because the repository
+path is fixed at `/alfresco` and ACA builds its URLs from its ECM host.
+
+| URL | Service |
+|---|---|
+| `http://localhost:8082/aca/` | ACA of the second instance (`content-app-2`) |
+| `http://localhost:8082/alfresco/` | Second repository (`alfresco-2`) |
+| `http://localhost:8082/api/content-lake/` | `batch-ingester-2` |
+| `http://localhost:8082/api/sync/` | `batch-ingester-2`, whatever the `sourceType` |
+| `http://localhost/api/sync/?sourceType=alfresco2` | `batch-ingester-2`, from the main port |
+| `http://localhost:8082/api/rag/`, `/api/status` | the shared `rag-service` |
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ALFRESCO_2_PUBLIC_PORT` | `8082` | HTTP port of the second instance |
+| `ALFRESCO_2_HTTPS_PORT` | `8445` | HTTPS port of the second instance, used when `USE_HTTPS=true` |
+| `ALFRESCO_2_PUBLIC_BASE_URL` | `http://localhost:8082` | Public origin of the second ACA. Set it when `PUBLIC_BASE_URL` is set |
+| `ALFRESCO_2_INTERNAL_USERNAME` / `ALFRESCO_2_INTERNAL_PASSWORD` | `admin` / `admin` | Service account of the second instance, for its ingesters and for `rag-service` |
+| `ALFRESCO_2_INDEX_NAME` | `alfresco2` | OpenSearch index name (and prefix of the other three) of the second instance |
+| `ALFRESCO_2_INGESTION_FOLDER_1` | `-root-` | Folder the second batch ingester syncs |
+| `ALFRESCO_2_INGESTER_SOURCE_ID` | empty | `ALFRESCO_SOURCE_ID` of both new ingesters. Empty means the repository id |
+| `ALFRESCO_1_SOURCE_ID` / `ALFRESCO_2_SOURCE_ID` | empty | Repository ids, as `RAG_SOURCES_0_ID` / `RAG_SOURCES_1_ID` |
+
+Memory. No base service sets a memory limit, and the ACS and transform JVMs size their heap at 80% of
+the memory they see. With the override file loaded, the JVM services of both instances get a
+`mem_limit`:
+
+| Services | Variable | Default | Total |
+|---|---|---|---|
+| `alfresco`, `alfresco-2` | `ALFRESCO_MEM_LIMIT` | `2g` | 4g |
+| `activemq`, `activemq-2` | `ACTIVEMQ_MEM_LIMIT` | `1g` | 2g |
+| `transform-core-aio` (shared) | `TRANSFORM_MEM_LIMIT` | `1536m` | 1.5g |
+| `batch-indexer`, `batch-indexer-2` | `SEARCH_INDEXER_MEM_LIMIT` | `1g` | 2g |
+| `batch-ingester`, `live-ingester` and their `-2` copies | `INGESTER_MEM_LIMIT` | `1g` | 4g |
+| | | | **13.5g** |
+
+That total covers the two instances only. `postgres`, `postgres-2`, `hxpr-app`, `mongodb`, `opensearch`,
+`rag-service` and the UIs have no limit and come on top.
+
+Repository ids. `rag-service` needs the repository id of each instance as the source id. An id exists
+only after the repository has bootstrapped once, so the first start leaves both ids empty. When both
+instances are healthy, read them:
+
+```bash
+curl -s -u admin:admin http://localhost/alfresco/api/discovery | jq -r .entry.repository.id
+curl -s -u admin:admin http://localhost:8082/alfresco/api/discovery | jq -r .entry.repository.id
+```
+
+Then set them in `.env.local` and run `make up-alfresco-2` again, which recreates `rag-service`:
+
+```bash
+ALFRESCO_1_SOURCE_ID=<id of the first instance>
+ALFRESCO_2_SOURCE_ID=<id of the second instance>
+```
+
+The two ids must differ. If they are the same, the second instance was started from a copy of the first
+one's volumes: run `make clean` and start again.
+
+`test/test-two-alfresco.sh` tests this profile end to end. See [Two-Alfresco Suite](#two-alfresco-suite).
+
 For any profile that includes Nuxeo (`nuxeo`, `full`, `demo`), clone `nuxeo-deployment` as a sibling and start it first:
 
 ```bash
@@ -115,6 +212,7 @@ infrastructure (network, named volumes, build secrets) and pulls in the rest via
 | [`compose.content-lake.yaml`](compose.content-lake.yaml) | Content Lake services: batch-ingester, live-ingester, rag-service, nuxeo-batch-ingester, nuxeo-live-ingester, plugin-batch-ingester, mock-graph |
 | [`compose.ui.yaml`](compose.ui.yaml) | UI and proxy: content-app, content-lake-app-ui (demo only), proxy |
 | [`compose.observability.yaml`](compose.observability.yaml) | Trace backend for the RAG spans: otel-lgtm (`observability` profile) |
+| [`compose.alfresco-2.yaml`](compose.alfresco-2.yaml) | Override file, not included: a second Alfresco instance (`alfresco-2` profile), see [Second Alfresco instance](#second-alfresco-instance-alfresco-2) |
 
 Always run from the project root using `make` or `docker compose` -- the included files are not
 designed to be run in isolation.
@@ -469,6 +567,7 @@ Only the proxy is published on the host on port `80`.
 | `http://localhost/api/content-lake/` | alfresco, full, demo |
 | `http://localhost/api/sync/` | all profiles (routes to the alfresco or nuxeo ingester via `?sourceType=`) |
 | `http://localhost:5601/` | OpenSearch Dashboards, `debug` profile only (opt-in, unauthenticated) |
+| `http://localhost:8082/` | Second Alfresco instance, `alfresco-2` profile only (opt-in, `/aca/`, `/alfresco/`, `/api/content-lake/`) |
 
 ## Nuxeo Demo Content
 
@@ -538,6 +637,7 @@ make up-alfresco      # build and start Alfresco profile
 make up-nuxeo         # build and start Nuxeo profile
 make up-full          # build and start full profile
 make up-demo          # build and start demo profile
+make up-alfresco-2    # build and start alfresco + a second Alfresco instance
 make down             # stop and remove containers (volumes preserved)
 make logs             # follow logs for all services
 make ps               # show running services and health
@@ -696,6 +796,34 @@ What no mock run can establish, and what still needs a tenant: real payload fide
 (written from Microsoft's documented shapes, not recorded), app-only token acquisition, genuine throttling
 behaviour, and whether SharePoint honours the `Prefer` headers at all. Do not read a green run as evidence
 of any of those four.
+
+## Two-Alfresco Suite
+
+`test/test-two-alfresco.sh` runs against the `alfresco-2` profile. It checks that the two repositories stay
+isolated and still answer one question together. It is opt-in, so it is not a phase of `test/run-tests.sh`.
+It needs `make up-alfresco-2` already up, with `ALFRESCO_1_SOURCE_ID` and `ALFRESCO_2_SOURCE_ID` set, and
+the AI backend on :12434. The first check stops the run if the two repository ids are not both listed by
+`GET /api/rag/sources`.
+
+```bash
+./test/test-two-alfresco.sh
+```
+
+It seeds users, groups and one folder per repository under a run tag, syncs both folders, and checks:
+
+| Check | What is verified |
+|---|---|
+| X -- Cross-source answer | A user in the Sales group of both repositories gets the Sales document of each, with its own `sourceId` |
+| G -- Groups per source | Finance membership in A does not open B's Finance document; a same-named group resolves to each repository's own members |
+| L -- Login per source | A user that exists only in B gets nothing from A; `X-Source-Authorization` carries a different password per repository; a wrong password or an unknown source gets 401 |
+| A -- Admin bypass | An administrator of A only sees all of A and nothing extra in B. Skipped when `RAG_SECURITY_ADMIN_BYPASS_ENABLED` is not `true` |
+| P -- ACL change | ACL changes made in A and in B within one second both reach the index |
+| D -- Deletion isolation | A document deleted in B leaves the index; A's document of the same name stays, also after a reconciling sync on B |
+| K -- Links | Each result's `openInSourceUrl` points at the ACA of its own repository (port 80 or 8082) |
+
+Pass `RAG_SECURITY_ADMIN_BYPASS_ENABLED=false` when `rag-service` runs without the bypass, so the A checks
+are skipped instead of failing. The seeded folders, users and groups are removed at the end; pass
+`KEEP_DATA=true` to keep them. Poll deadlines are 60 seconds (`POLL_DEADLINE_S`, `SYNC_DEADLINE_S`).
 
 ## Deploying to AWS EC2
 

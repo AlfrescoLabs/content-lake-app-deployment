@@ -1,0 +1,214 @@
+# alfresco-2.conf.template - server blocks for the second Alfresco instance (opt-in alfresco-2 profile).
+#
+# Not a complete nginx config. The proxy command in compose.alfresco-2.yaml substitutes it with envsubst
+# and inserts it into the http block of nginx.conf.template, so the resolver and the $sync_backend map
+# defined there are in scope.
+#
+# Variables injected by docker compose:
+#   SERVER_NAME             e.g. localhost (default) or demo.example.com
+#   ALFRESCO_2_PUBLIC_PORT  HTTP port of the second instance (default 8082), on the host and in the container
+#   ALFRESCO_2_HTTPS_PORT   HTTPS port of the second instance (default 8445), on the host and in the container
+#
+# A port of its own rather than a path prefix such as /alfresco2/: the repository webapp path is fixed at
+# /alfresco, and ACA builds its URLs from APP_CONFIG_ECM_HOST, so both need an origin to themselves.
+#
+# Only the second instance's own routes are here, plus the rag-service routes ACA calls same-origin.
+# The admin console, Share, Nuxeo and the plugin host stay on the main port.
+
+    # -- HTTP server, second Alfresco instance ----------------------------------
+    # When USE_HTTPS=true the entrypoint strips the marker in front of the redirect below.
+    server {
+
+        listen *:${ALFRESCO_2_PUBLIC_PORT};
+        server_name ${SERVER_NAME};
+
+        ##ALFRESCO_2_HTTPS_REDIRECT## return 301 https://$host:${ALFRESCO_2_HTTPS_PORT}$request_uri;
+
+        client_max_body_size 0;
+
+        set  $allowOriginSite *;
+        proxy_pass_request_headers on;
+        proxy_pass_header Set-Cookie;
+
+        proxy_connect_timeout 600;
+        proxy_send_timeout    600;
+        proxy_read_timeout    600;
+        send_timeout          600;
+
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+        proxy_redirect off;
+        proxy_buffering off;
+        proxy_set_header Host            $host:$server_port;
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_pass_header Set-Cookie;
+
+        set $batch_ingester_upstream batch-ingester-2:9090;
+        set $rag_service_upstream    rag-service:9091;
+        set $alfresco_upstream       alfresco-2:8080;
+        set $content_app_upstream    content-app-2:8080;
+
+        location ~ ^(/.*/service/api/solr/.*)$             { return 403; }
+        location ~ ^(/.*/s/api/solr/.*)$                   { return 403; }
+        location ~ ^(/.*/wcservice/api/solr/.*)$           { return 403; }
+        location ~ ^(/.*/wcs/api/solr/.*)$                 { return 403; }
+        location ~ ^(/.*/proxy/alfresco/api/solr/.*)$      { return 403; }
+        location ~ ^(/.*/-default-/proxy/alfresco/api/.*)$ { return 403; }
+
+        location /api/rag/chat/stream {
+            proxy_pass http://$rag_service_upstream;
+            proxy_next_upstream off;
+            proxy_read_timeout 300s;
+            proxy_cache off;
+        }
+
+        # This origin belongs to the second instance, so a sync sent here goes to its own ingester whatever
+        # the sourceType. The main port reaches the same ingester with ?sourceType=alfresco2.
+        location /api/sync {
+            proxy_pass http://$batch_ingester_upstream;
+        }
+
+        location /api/content-lake {
+            proxy_pass http://$batch_ingester_upstream;
+        }
+
+        location /api/rag {
+            proxy_pass http://$rag_service_upstream;
+        }
+
+        # Operational status snapshot (rag-service, authenticated). The ACA extension reads it same-origin.
+        location /api/status {
+            proxy_pass http://$rag_service_upstream;
+            proxy_hide_header WWW-Authenticate;
+        }
+
+        location /alfresco/ {
+            proxy_pass http://$alfresco_upstream;
+        }
+
+        location /api-explorer/ {
+            proxy_pass http://$alfresco_upstream;
+        }
+
+        location = /aca {
+            return 301 /aca/;
+        }
+
+        location /aca/ {
+            rewrite ^/aca(/.*)$ $1 break;
+            proxy_pass http://$content_app_upstream;
+            sub_filter_once on;
+            sub_filter_types text/html;
+            sub_filter '<base href="/">' '<base href="/aca/">';
+            sub_filter 'href="/' 'href="/aca/';
+            sub_filter 'src="/' 'src="/aca/';
+        }
+
+        location / {
+            return 302 /aca/;
+        }
+    }
+
+    # -- HTTPS server, second Alfresco instance (local self-signed) -------------
+    # Kept by the entrypoint only when USE_HTTPS=true, like the main HTTPS block.
+    ##HTTPS_SERVER_BLOCK_START##
+    server {
+
+        listen ${ALFRESCO_2_HTTPS_PORT} ssl;
+        http2 on;
+        server_name ${SERVER_NAME};
+
+        ssl_certificate     /etc/nginx/certs/server.crt;
+        ssl_certificate_key /etc/nginx/certs/server.key;
+
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384';
+        ssl_prefer_server_ciphers off;
+
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+
+        client_max_body_size 0;
+
+        set  $allowOriginSite *;
+        proxy_pass_request_headers on;
+        proxy_pass_header Set-Cookie;
+
+        proxy_connect_timeout 600;
+        proxy_send_timeout    600;
+        proxy_read_timeout    600;
+        send_timeout          600;
+
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+        proxy_redirect off;
+        proxy_buffering off;
+        proxy_set_header Host            $host:$server_port;
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_pass_header Set-Cookie;
+
+        set $batch_ingester_upstream batch-ingester-2:9090;
+        set $rag_service_upstream    rag-service:9091;
+        set $alfresco_upstream       alfresco-2:8080;
+        set $content_app_upstream    content-app-2:8080;
+
+        location ~ ^(/.*/service/api/solr/.*)$             { return 403; }
+        location ~ ^(/.*/s/api/solr/.*)$                   { return 403; }
+        location ~ ^(/.*/wcservice/api/solr/.*)$           { return 403; }
+        location ~ ^(/.*/wcs/api/solr/.*)$                 { return 403; }
+        location ~ ^(/.*/proxy/alfresco/api/solr/.*)$      { return 403; }
+        location ~ ^(/.*/-default-/proxy/alfresco/api/.*)$ { return 403; }
+
+        location /api/rag/chat/stream {
+            proxy_pass http://$rag_service_upstream;
+            proxy_next_upstream off;
+            proxy_read_timeout 300s;
+            proxy_cache off;
+        }
+
+        location /api/sync {
+            proxy_pass http://$batch_ingester_upstream;
+        }
+
+        location /api/content-lake {
+            proxy_pass http://$batch_ingester_upstream;
+        }
+
+        location /api/rag {
+            proxy_pass http://$rag_service_upstream;
+        }
+
+        location /api/status {
+            proxy_pass http://$rag_service_upstream;
+            proxy_hide_header WWW-Authenticate;
+        }
+
+        location /alfresco/ {
+            proxy_pass http://$alfresco_upstream;
+        }
+
+        location /api-explorer/ {
+            proxy_pass http://$alfresco_upstream;
+        }
+
+        location = /aca {
+            return 301 /aca/;
+        }
+
+        location /aca/ {
+            rewrite ^/aca(/.*)$ $1 break;
+            proxy_pass http://$content_app_upstream;
+            sub_filter_once on;
+            sub_filter_types text/html;
+            sub_filter '<base href="/">' '<base href="/aca/">';
+            sub_filter 'href="/' 'href="/aca/';
+            sub_filter 'src="/' 'src="/aca/';
+        }
+
+        location / {
+            return 302 /aca/;
+        }
+    }
+    ##HTTPS_SERVER_BLOCK_END##

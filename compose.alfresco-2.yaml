@@ -1,0 +1,426 @@
+# compose.alfresco-2.yaml - a second, independent Alfresco next to the first, writing to the same hxpr.
+# Not part of the include: list in compose.yaml. It is an override file, added on top of the main stack:
+#
+#   make up-alfresco-2
+#   COMPOSE_FILE=compose.yaml:compose.alfresco-2.yaml docker compose --profile alfresco --profile alfresco-2 up -d
+#
+# Profile: alfresco-2 (opt-in, layered on alfresco, full or demo).
+#
+# An override file rather than an included one, because the second instance also changes three services the
+# base stack already defines: rag-service gets the list of Alfresco sources, proxy gets a second server
+# block on its own port, and the JVM services of the first instance get a memory limit. Keeping those
+# changes here means a base profile renders exactly as it does without this file.
+#
+# Per-instance services are copies of compose.alfresco.yaml, compose.content-lake.yaml and compose.ui.yaml
+# with a -2 suffix and every instance hostname replaced. transform-core-aio is shared: the community
+# repository calls it over HTTP only (localTransform.core-aio.url), and the batch indexer reads its
+# /transform/config, so the broker it is connected to is never on the transform path of either instance.
+#
+# Fresh volumes on purpose. The repository id is generated on the first bootstrap and stored in the
+# database, so a copy of the first instance's volumes would give the second instance the same id, and the
+# two sources could not be told apart.
+#
+# Memory. The ACS and transform JVMs size their heap with MaxRAMPercentage=80 and the Content Lake JVMs
+# with MaxRAMPercentage=75, which reads the host memory when no limit is set. Two instances on one host
+# would each try to take most of it, so every JVM service of both instances gets a limit here. Defaults:
+#
+#   alfresco, alfresco-2                   ALFRESCO_MEM_LIMIT        2g     x2  4g
+#   activemq, activemq-2                   ACTIVEMQ_MEM_LIMIT        1g     x2  2g
+#   transform-core-aio (shared)            TRANSFORM_MEM_LIMIT       1536m  x1  1.5g
+#   batch-indexer, batch-indexer-2         SEARCH_INDEXER_MEM_LIMIT  1g     x2  2g
+#   batch-ingester(-2), live-ingester(-2)  INGESTER_MEM_LIMIT        1g     x4  4g
+#                                                                    total      13.5g
+#
+# That total covers the two instances only. postgres, postgres-2, hxpr-app, mongodb, opensearch,
+# rag-service and the UIs are not limited and come on top.
+
+volumes:
+  postgres-data-2:
+  alf-repo-data-2:
+
+services:
+
+  # -- Memory limits on the first instance (only when this file is loaded) ------
+
+  alfresco:
+    mem_limit: ${ALFRESCO_MEM_LIMIT:-2g}
+
+  activemq:
+    mem_limit: ${ACTIVEMQ_MEM_LIMIT:-1g}
+
+  transform-core-aio:
+    mem_limit: ${TRANSFORM_MEM_LIMIT:-1536m}
+
+  batch-indexer:
+    mem_limit: ${SEARCH_INDEXER_MEM_LIMIT:-1g}
+
+  batch-ingester:
+    mem_limit: ${INGESTER_MEM_LIMIT:-1g}
+
+  live-ingester:
+    mem_limit: ${INGESTER_MEM_LIMIT:-1g}
+
+  # -- Second Alfresco instance ---------------------------------------------------
+
+  postgres-2:
+    profiles: [alfresco-2]
+    image: postgres:${POSTGRES_TAG:-15.6}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    command: postgres -c max_connections=200 -c log_min_messages=LOG
+    volumes:
+      - postgres-data-2:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stack
+
+  activemq-2:
+    profiles: [alfresco-2]
+    image: alfresco/alfresco-activemq:${ACTIVEMQ_TAG:-5.18-jre17-rockylinux8}
+    restart: unless-stopped
+    mem_limit: ${ACTIVEMQ_MEM_LIMIT:-1g}
+    environment:
+      ACTIVEMQ_ADMIN_LOGIN: ${ACTIVEMQ_USER:-admin}
+      ACTIVEMQ_ADMIN_PASSWORD: ${ACTIVEMQ_PASSWORD:-admin}
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - --user
+        - ${ACTIVEMQ_USER:-admin}:${ACTIVEMQ_PASSWORD:-admin}
+        - http://localhost:8161/admin/
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - stack
+
+  # Own OpenSearch indices in the shared cluster. The first instance uses the defaults (alfresco,
+  # alfresco-archive); this one sets elasticsearch.indexName and elasticsearch.archive.indexName, the
+  # properties of the repository's elasticsearch search subsystem
+  # (alfresco/subsystems/Search/elasticsearch/elasticsearch.properties in alfresco-repository-26.2.0).
+  # ALFRESCO_2_INDEX_NAME must match batch-indexer-2 below.
+  alfresco-2:
+    profiles: [alfresco-2]
+    restart: unless-stopped
+    mem_limit: ${ALFRESCO_MEM_LIMIT:-2g}
+    build:
+      context: ./acs/alfresco
+      additional_contexts:
+        content_lake_app: ${CONTENT_LAKE_ACS_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}
+      args:
+        ALFRESCO_TAG: ${ALFRESCO_CE_TAG:-26.2.0}
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -Dencryption.keystore.type=JCEKS
+        -Dencryption.cipherAlgorithm=DESede/CBC/PKCS5Padding
+        -Dencryption.keyAlgorithm=DESede
+        -Dencryption.keystore.location=/usr/local/tomcat/shared/classes/alfresco/extension/keystore/keystore
+        -Dmetadata-keystore.password=mp6yc0UD9e
+        -Dmetadata-keystore.aliases=metadata
+        -Dmetadata-keystore.metadata.password=oKIWzVdEdA
+        -Dmetadata-keystore.metadata.algorithm=DESede
+      JAVA_OPTS: >-
+        -Ddb.username=${POSTGRES_USER}
+        -Ddb.password=${POSTGRES_PASSWORD}
+        -Ddb.driver=org.postgresql.Driver
+        -Ddb.url=jdbc:postgresql://postgres-2:5432/${POSTGRES_DB}
+        -Dalfresco_user_store.adminpassword=209c6174da490caeb422f3fa5a7ae634
+        -Dsystem.preferred.password.encoding=bcrypt10
+        -Dindex.subsystem.name=elasticsearch
+        -Delasticsearch.host=opensearch
+        -Delasticsearch.port=9200
+        -Delasticsearch.createIndexIfNotExists=true
+        -Delasticsearch.indexName=${ALFRESCO_2_INDEX_NAME:-alfresco2}
+        -Delasticsearch.archive.indexName=${ALFRESCO_2_INDEX_NAME:-alfresco2}-archive
+        -Dsolr.secureComms=secret
+        -Dsolr.sharedSecret=${SHARED_SECRET}
+        -Dalfresco.host=${SERVER_NAME:-localhost}
+        -Dalfresco.port=${ALFRESCO_2_PUBLIC_PORT:-8082}
+        -Dapi-explorer.url=http://${SERVER_NAME:-localhost}:${ALFRESCO_2_PUBLIC_PORT:-8082}/api-explorer
+        -Dalfresco.protocol=http
+        -Dshare.host=${SERVER_NAME:-localhost}
+        -Dshare.port=${ALFRESCO_2_PUBLIC_PORT:-8082}
+        -Dshare.protocol=http
+        -Daos.baseUrlOverwrite=http://${SERVER_NAME:-localhost}:${ALFRESCO_2_PUBLIC_PORT:-8082}/alfresco/aos
+        -Dmessaging.broker.url="failover:(nio://activemq-2:61616)?timeout=3000&jms.useCompression=true"
+        -Dmessaging.broker.username=${ACTIVEMQ_USER:-admin}
+        -Dmessaging.broker.password=${ACTIVEMQ_PASSWORD:-admin}
+        -Ddeployment.method=DOCKER_COMPOSE
+        -Dcsrf.filter.enabled=false
+        -Dopencmis.server.override=true
+        -Dopencmis.server.value=http://${SERVER_NAME:-localhost}:${ALFRESCO_2_PUBLIC_PORT:-8082}
+        -DlocalTransform.core-aio.url=http://transform-core-aio:8090/
+        -Dhttpclient.config.transform.connectionRequestTimeout=500000
+        -Dalfresco.restApi.basicAuthScheme=true
+        -Dauthentication.protection.enabled=false
+        -Dcontent.lake.permission.sync.enabled=${CONTENT_LAKE_PERMISSION_SYNC_ENABLED:-true}
+        -Dcontent.lake.permission.sync.broker-url=tcp://activemq-2:61616
+        -Dcontent.lake.permission.sync.broker-user=${ACTIVEMQ_USER:-admin}
+        -Dcontent.lake.permission.sync.broker-password=${ACTIVEMQ_PASSWORD:-admin}
+        -Dcontent.lake.permission.sync.queue-name=${CONTENT_LAKE_PERMISSION_SYNC_QUEUE_NAME:-contentlake.acl.changed}
+        -XX:+UseG1GC -XX:+UseStringDeduplication
+        -Dgoogledocs.enabled=false
+        -Ddev.email.not.sent=true
+        -XX:MinRAMPercentage=50 -XX:MaxRAMPercentage=80
+    volumes:
+      - alf-repo-data-2:/usr/local/tomcat/alf_data
+    depends_on:
+      postgres-2:
+        condition: service_healthy
+      activemq-2:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8080/alfresco/api/-default-/public/alfresco/versions/1/probes/-ready-
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 1m
+    networks:
+      - stack
+
+  # Alfresco Search Community batch indexer for the second instance. All four index names are
+  # @ConfigurationProperties of alfresco-elasticsearch-batch-indexing 5.7.0 (BOOT-INF/classes/
+  # application.properties): elasticsearch.indexName, alfresco.reindex.continuous.alfrescoIndexName (the
+  # index it checks for and bootstraps its cursor from), alfresco.reindex.continuous.watermarkIndexName and
+  # alfresco.reindex.dead-letter.indexName. The last two default to alfresco-reindex-state and
+  # alfresco-reindex-dead-letter, which the first indexer already uses: left at their defaults, the two
+  # indexers would share one polling cursor.
+  batch-indexer-2:
+    profiles: [alfresco-2]
+    image: alfresco/alfresco-elasticsearch-batch-indexing:${SEARCH_INDEXER_TAG:-5.7.0}
+    restart: unless-stopped
+    mem_limit: ${SEARCH_INDEXER_MEM_LIMIT:-1g}
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-2:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_ELASTICSEARCH_REST_URIS: http://opensearch:9200
+      ELASTICSEARCH_INDEXNAME: ${ALFRESCO_2_INDEX_NAME:-alfresco2}
+      ALFRESCO_REINDEX_CONTINUOUS_ALFRESCOINDEXNAME: ${ALFRESCO_2_INDEX_NAME:-alfresco2}
+      ALFRESCO_REINDEX_CONTINUOUS_WATERMARKINDEXNAME: ${ALFRESCO_2_INDEX_NAME:-alfresco2}-reindex-state
+      ALFRESCO_REINDEX_DEADLETTER_INDEXNAME: ${ALFRESCO_2_INDEX_NAME:-alfresco2}-reindex-dead-letter
+      ALFRESCO_ACS_URL: http://alfresco-2:8080
+      ALFRESCO_ACCEPTEDCONTENTMEDIATYPESCACHE_BASEURL: http://transform-core-aio:8090/transform/config
+      ALFRESCO_CONTENT_TRANSFORM_SHAREDSECRET: ${SHARED_SECRET}
+      ALFRESCO_REINDEX_CONTINUOUS_POLLINGINTERVAL: ${SEARCH_INDEXER_POLLINGINTERVAL:-2s}
+      ALFRESCO_REINDEX_CONTINUOUS_CATCHUPPOLLINGINTERVAL: 1s
+      ALFRESCO_REINDEX_CONTINUOUS_MAXWINDOW: 30m
+      ALFRESCO_REINDEX_CONTINUOUS_OVERLAP: 10m
+      ALFRESCO_REINDEX_PREFIXES_FILE: file:/opt/search/reindex.prefixes-file.json
+    volumes:
+      - ./acs/search/reindex.prefixes-file.json:/opt/search/reindex.prefixes-file.json:ro
+    depends_on:
+      alfresco-2:
+        condition: service_healthy
+      opensearch:
+        condition: service_healthy
+    networks:
+      - stack
+
+  # -- Ingesters for the second instance ---------------------------------------
+  #
+  # ALFRESCO_SOURCE_ID is content.lake.source-id: the source id written on every document. Empty means the
+  # repository id read from the instance, which is what keeps the two instances apart in hxpr. Set it only
+  # to pin a known id; it must then match RAG_SOURCES_1_ID on rag-service.
+
+  batch-ingester-2:
+    profiles: [alfresco-2]
+    image: content-lake-app/batch-ingester:local
+    mem_limit: ${INGESTER_MEM_LIMIT:-1g}
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile
+      target: batch-ingester
+      additional_contexts:
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+    environment:
+      ACTIVEMQ_URL: tcp://activemq-2:61616
+      ACTIVEMQ_USER: ${ACTIVEMQ_USER}
+      ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD}
+      ALFRESCO_URL: http://alfresco-2:8080
+      ALFRESCO_INTERNAL_USERNAME: ${ALFRESCO_2_INTERNAL_USERNAME:-admin}
+      ALFRESCO_INTERNAL_PASSWORD: ${ALFRESCO_2_INTERNAL_PASSWORD:-admin}
+      ALFRESCO_SOURCE_ID: ${ALFRESCO_2_INGESTER_SOURCE_ID:-}
+      HXPR_URL: http://hxpr-app:8080
+      HXPR_REPOSITORY_ID: ${HXPR_REPOSITORY_ID}
+      HXPR_TARGET_PATH: ${HXPR_TARGET_PATH}
+      HXPR_USERNAME: ${HXPR_USERNAME}
+      HXPR_PASSWORD: ${HXPR_PASSWORD}
+      CONTENT_LAKE_PERMISSION_SYNC_QUEUE_NAME: ${CONTENT_LAKE_PERMISSION_SYNC_QUEUE_NAME:-contentlake.acl.changed}
+      TRANSFORM_URL: ${TRANSFORM_URL:-http://transform-core-aio:8090}
+      TRANSFORM_TIMEOUT_MS: ${TRANSFORM_TIMEOUT_MS:-300000}
+      EXTRACTION_FORMAT: ${EXTRACTION_FORMAT:-plaintext}
+      EXTRACTION_ENGINE_URLS: ${EXTRACTION_ENGINE_URLS:-}
+      MODEL_RUNNER_URL: ${MODEL_RUNNER_URL:-http://host.docker.internal:12434}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-ai/mxbai-embed-large}
+      LLM_MODEL: ${LLM_MODEL:-ai/gpt-oss}
+      SPRING_HTTP_CLIENT_READ_TIMEOUT: ${SPRING_HTTP_CLIENT_READ_TIMEOUT:-180s}
+      SPRING_HTTP_CLIENT_CONNECT_TIMEOUT: ${SPRING_HTTP_CLIENT_CONNECT_TIMEOUT:-10s}
+      INGESTION_FOLDER_1: ${ALFRESCO_2_INGESTION_FOLDER_1:--root-}
+      INGESTION_RECONCILE_ENABLED: ${INGESTION_RECONCILE_ENABLED:-true}
+      INGESTION_RECONCILE_MAX_DELETE_RATIO: ${INGESTION_RECONCILE_MAX_DELETE_RATIO:-0.5}
+      INGESTION_RECONCILE_MAX_DELETES: ${INGESTION_RECONCILE_MAX_DELETES:-1000}
+      INGESTION_RECONCILE_MAX_SEEN_IDS: ${INGESTION_RECONCILE_MAX_SEEN_IDS:-200000}
+      INGESTION_RECONCILE_PAGE_SIZE: ${INGESTION_RECONCILE_PAGE_SIZE:-200}
+      CONNECTOR_VALIDATION: ${CONNECTOR_VALIDATION_INGESTERS:-warn}
+    volumes:
+      - "${CONNECTOR_PLUGIN_PATH:-./connectors}:/opt/content-lake/connectors:ro"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      alfresco-2:
+        condition: service_healthy
+      hxpr-app:
+        condition: service_healthy
+    networks:
+      - stack
+
+  live-ingester-2:
+    profiles: [alfresco-2]
+    image: content-lake-app/live-ingester:local
+    mem_limit: ${INGESTER_MEM_LIMIT:-1g}
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile
+      target: live-ingester
+      additional_contexts:
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+    environment:
+      ACTIVEMQ_URL: tcp://activemq-2:61616
+      ACTIVEMQ_USER: ${ACTIVEMQ_USER}
+      ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD}
+      ALFRESCO_EVENT_TOPIC: alfresco.repo.event2
+      ALFRESCO_URL: http://alfresco-2:8080
+      ALFRESCO_INTERNAL_USERNAME: ${ALFRESCO_2_INTERNAL_USERNAME:-admin}
+      ALFRESCO_INTERNAL_PASSWORD: ${ALFRESCO_2_INTERNAL_PASSWORD:-admin}
+      ALFRESCO_SOURCE_ID: ${ALFRESCO_2_INGESTER_SOURCE_ID:-}
+      HXPR_URL: http://hxpr-app:8080
+      HXPR_REPOSITORY_ID: ${HXPR_REPOSITORY_ID}
+      HXPR_TARGET_PATH: ${HXPR_TARGET_PATH}
+      HXPR_USERNAME: ${HXPR_USERNAME}
+      HXPR_PASSWORD: ${HXPR_PASSWORD}
+      TRANSFORM_URL: ${TRANSFORM_URL:-http://transform-core-aio:8090}
+      TRANSFORM_TIMEOUT_MS: ${TRANSFORM_TIMEOUT_MS:-300000}
+      EXTRACTION_FORMAT: ${EXTRACTION_FORMAT:-plaintext}
+      EXTRACTION_ENGINE_URLS: ${EXTRACTION_ENGINE_URLS:-}
+      MODEL_RUNNER_URL: ${MODEL_RUNNER_URL:-http://host.docker.internal:12434}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-ai/mxbai-embed-large}
+      LLM_MODEL: ${LLM_MODEL:-ai/gpt-oss}
+      SPRING_HTTP_CLIENT_READ_TIMEOUT: ${SPRING_HTTP_CLIENT_READ_TIMEOUT:-180s}
+      SPRING_HTTP_CLIENT_CONNECT_TIMEOUT: ${SPRING_HTTP_CLIENT_CONNECT_TIMEOUT:-10s}
+      CONNECTOR_VALIDATION: ${CONNECTOR_VALIDATION_INGESTERS:-warn}
+    volumes:
+      - "${CONNECTOR_PLUGIN_PATH:-./connectors}:/opt/content-lake/connectors:ro"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      alfresco-2:
+        condition: service_healthy
+      hxpr-app:
+        condition: service_healthy
+    networks:
+      - stack
+
+  # -- ACA for the second instance ----------------------------------------------
+  #
+  # Served on the second proxy port, so its ECM host and its RAG URL are that origin, and the browser sends
+  # the second instance's ticket only to the second instance.
+
+  content-app-2:
+    profiles: [alfresco-2]
+    build:
+      context: "${CONTENT_LAKE_UI_GIT_CONTEXT:-https://github.com/AlfrescoLabs/alfresco-content-lake-ui.git#main}"
+      dockerfile: docker/Dockerfile
+      args:
+        ACA_TAG: ${ACA_TAG:-7.3.0}
+    environment:
+      APP_CONFIG_ECM_HOST: ${ALFRESCO_2_PUBLIC_BASE_URL:-http://localhost:${ALFRESCO_2_PUBLIC_PORT:-8082}}
+      APP_CONFIG_RAG_URL: ${ALFRESCO_2_PUBLIC_BASE_URL:-http://localhost:${ALFRESCO_2_PUBLIC_PORT:-8082}}/api/rag
+    depends_on:
+      alfresco-2:
+        condition: service_healthy
+      rag-service:
+        condition: service_healthy
+    networks:
+      - stack
+
+  # -- Shared services, extended for the second instance -------------------------
+
+  # Both Alfresco instances as rag.sources[] entries (Spring relaxed binding of rag.sources[n].*). The ids
+  # must be the repository ids, which exist only after each repository has bootstrapped once, so they are
+  # empty until ALFRESCO_1_SOURCE_ID and ALFRESCO_2_SOURCE_ID are set. Read them with
+  #   curl -u admin:admin http://localhost/alfresco/api/discovery        (first instance)
+  #   curl -u admin:admin http://localhost:8082/alfresco/api/discovery   (second instance)
+  # and take repository.id from each response.
+  #
+  # The link templates are absolute: the two ACAs are on different origins, so a relative link would open
+  # a document of one instance in the ACA of the other.
+  rag-service:
+    environment:
+      RAG_SOURCES_0_ID: ${ALFRESCO_1_SOURCE_ID:-}
+      RAG_SOURCES_0_TYPE: alfresco
+      RAG_SOURCES_0_URL: http://alfresco:8080
+      RAG_SOURCES_0_SERVICE_USERNAME: ${ALFRESCO_ADMIN_USER}
+      RAG_SOURCES_0_SERVICE_PASSWORD: ${ALFRESCO_ADMIN_PASSWORD}
+      RAG_SOURCES_0_LINK_TEMPLATE: "${PUBLIC_BASE_URL:-http://localhost:${PUBLIC_PORT:-80}}/aca/#/search/(viewer:view/{nodeId})?location=%2Frag"
+      RAG_SOURCES_1_ID: ${ALFRESCO_2_SOURCE_ID:-}
+      RAG_SOURCES_1_TYPE: alfresco
+      RAG_SOURCES_1_URL: http://alfresco-2:8080
+      RAG_SOURCES_1_SERVICE_USERNAME: ${ALFRESCO_2_INTERNAL_USERNAME:-admin}
+      RAG_SOURCES_1_SERVICE_PASSWORD: ${ALFRESCO_2_INTERNAL_PASSWORD:-admin}
+      RAG_SOURCES_1_LINK_TEMPLATE: "${ALFRESCO_2_PUBLIC_BASE_URL:-http://localhost:${ALFRESCO_2_PUBLIC_PORT:-8082}}/aca/#/search/(viewer:view/{nodeId})?location=%2Frag"
+
+  # The second instance's server blocks live in nginx/alfresco-2.conf.template and are spliced into the
+  # main config at its ##EXTRA_SERVER_BLOCKS## marker. nginx listens on the same port number inside the
+  # container as on the host, so the Host header and the HTTPS redirect carry the public port.
+  #
+  # The command is the one in compose.ui.yaml plus the splice and the second redirect. Keep the two in step.
+  proxy:
+    ports:
+      - target: ${ALFRESCO_2_PUBLIC_PORT:-8082}
+        published: "${ALFRESCO_2_PUBLIC_PORT:-8082}"
+        host_ip: "${BIND_IP:-0.0.0.0}"
+        protocol: tcp
+      - target: ${ALFRESCO_2_HTTPS_PORT:-8445}
+        published: "${ALFRESCO_2_HTTPS_PORT:-8445}"
+        host_ip: "${BIND_IP:-0.0.0.0}"
+        protocol: tcp
+    environment:
+      ALFRESCO_2_PUBLIC_PORT: ${ALFRESCO_2_PUBLIC_PORT:-8082}
+      ALFRESCO_2_HTTPS_PORT: ${ALFRESCO_2_HTTPS_PORT:-8445}
+    volumes:
+      - ./nginx/alfresco-2.conf.template:/etc/nginx/conf-template/alfresco-2.conf.template:ro
+    command:
+      - /bin/sh
+      - -c
+      - |
+          set -e
+          envsubst '$$NGINX_SYNC_DEFAULT_BACKEND $$NGINX_ROOT_DIRECTIVE $$NGINX_CONNECTOR_SOURCE_TYPE $$SERVER_NAME' \
+            < /etc/nginx/conf-template/nginx.conf.template \
+            > /tmp/nginx.conf.substituted
+          envsubst '$$SERVER_NAME $$ALFRESCO_2_PUBLIC_PORT $$ALFRESCO_2_HTTPS_PORT' \
+            < /etc/nginx/conf-template/alfresco-2.conf.template \
+            > /tmp/alfresco-2.conf.substituted
+          sed -i '/##EXTRA_SERVER_BLOCKS##/r /tmp/alfresco-2.conf.substituted' /tmp/nginx.conf.substituted
+          if [ "$$USE_HTTPS" = "true" ] && [ -f /etc/nginx/certs/server.crt ]; then
+            sed -i 's|##HTTPS_REDIRECT_PLACEHOLDER##|return 301 https://$$host$$request_uri;|' /tmp/nginx.conf.substituted
+            sed -i 's|##ALFRESCO_2_HTTPS_REDIRECT##||' /tmp/nginx.conf.substituted
+            sed -i '/##HTTPS_SERVER_BLOCK_START##/d; /##HTTPS_SERVER_BLOCK_END##/d' /tmp/nginx.conf.substituted
+          else
+            sed -i 's|##HTTPS_REDIRECT_PLACEHOLDER##||' /tmp/nginx.conf.substituted
+            sed -i '/##HTTPS_SERVER_BLOCK_START##/,/##HTTPS_SERVER_BLOCK_END##/d' /tmp/nginx.conf.substituted
+          fi
+          nginx -c /tmp/nginx.conf.substituted -g 'daemon off;'
