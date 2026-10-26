@@ -206,6 +206,9 @@ services:
       # <username>@<domain>. Anything more elaborate is an identity-mapping problem this does not solve; an
       # unknown identity is a 404, which costs the caller only this source's group grants.
       RAG_SECURITY_ENTRA_USERNAME_SUFFIX: ${RAG_SECURITY_ENTRA_USERNAME_SUFFIX:-}
+      # user (the caller's own groups, needs a user-read permission) or group (asks the indexed groups,
+      # needs GroupMember.Read.All only, matches callers signed in with Entra ID).
+      RAG_SECURITY_ENTRA_MEMBERSHIP_LOOKUP: ${RAG_SECURITY_ENTRA_MEMBERSHIP_LOOKUP:-user}
       # Caller authentication against a CMIS repository, so a deployment whose only source is the CMIS
       # connector can be queried by its own users rather than by a service account.
       #

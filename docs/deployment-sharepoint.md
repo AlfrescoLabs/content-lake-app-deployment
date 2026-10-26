@@ -61,41 +61,46 @@ curl -s http://localhost:8099/mock-diagnostics/requests | jq .
 
 ## Demo Site Structure
 
-The mock's fixture tree contains **8 documents** in **7 containers** (folders), designed to test
-all major connector features: permissions, scoping, MIME filtering, delta sync, and ACL mapping.
+The mock's fixture tree (`content-lake-app/plugins/sharepoint-connector/src/test/resources/fixtures/`)
+holds **10 documents** in **6 folders**, designed to test permissions, scoping, MIME filtering, delta sync
+and ACL mapping.
 
 ### Folder Structure
 
 ```
 drive root (b!mock-drive-id:root)
-├── f-public/           (Public folder - everyone can read)
-│   ├── quarterly-review.txt       (Plain text, sentence "pangolin-ledger-quarterly")
-│   ├── incident-log.txt           (Plain text, sentence "pangolin-ledger-incident")
-│   ├── obsolete-note.txt          (Plain text, deleted in delta change #1)
-│   └── quarterly-report.pdf       (PDF, sentence "pangolin-ledger-pdf-report")
-├── f-user/             (User-scoped folder - only named user)
-│   └── named-grant.txt            (Plain text, sentence "pangolin-ledger-user")
-├── f-group/            (Group-scoped folder - only group members)
-│   └── group-only.txt             (Plain text, sentence "pangolin-ledger-group")
-├── f-orglink/          (Organisation link folder - everyone in tenant)
-│   └── org-wide.txt               (Plain text, sentence "pangolin-ledger-orgwide")
-└── f-nested/           (Nested folder structure)
-    └── f-level-two/
-        └── deep-file.txt          (Plain text, sentence "pangolin-ledger-nested")
+  public/           f-public      inherits "Everyone except external users"
+    quarterly-review.txt          pangolin-ledger-quarterly
+    incident-log.md               pangolin-ledger-incident   (markdown)
+    quarterly-report.pdf          pangolin-ledger-pdf-report (PDF)
+    obsolete-note.txt             pangolin-ledger-obsolete   (deleted in delta change 1)
+    widely-shared.txt             permissions over two pages
+    unreadable-acl.txt            its permissions read fails
+  restricted-user/  f-user
+    named-grant.txt               pangolin-ledger-named      (one named user)
+  restricted-group/ f-group
+    group-grant.txt               pangolin-ledger-group      (one group only)
+  org-link/         f-orglink
+    org-wide.txt                  pangolin-ledger-orgwide    (organisation link, plus an anonymous one)
+  nested/           f-nested
+    level-two/      f-level-two
+      deep-document.txt           pangolin-ledger-deep       (users-scoped sharing link)
 ```
 
 ### Document Details
 
-| File Name | Item ID | MIME Type | Size | Sentinel Phrase | Permission Scope |
-|-----------|---------|-----------|------|-----------------|------------------|
-| quarterly-review.txt | i-quarterly | text/plain | 74 | pangolin-ledger-quarterly | Public |
-| incident-log.txt | i-incident | text/plain | 75 | pangolin-ledger-incident | Public |
-| quarterly-report.pdf | i-report | application/pdf | 649 | pangolin-ledger-pdf-report | Public |
-| obsolete-note.txt | i-removed | text/plain | 94 | pangolin-ledger-removed | Public (deleted) |
-| named-grant.txt | i-named | text/plain | 77 | pangolin-ledger-user | User-scoped |
-| group-only.txt | i-group | text/plain | 74 | pangolin-ledger-group | Group-scoped |
-| org-wide.txt | i-orgwide | text/plain | 76 | pangolin-ledger-orgwide | Organisation link |
-| deep-file.txt | i-deep | text/plain | 85 | pangolin-ledger-nested | Public (nested) |
+| File Name | Item ID | MIME Type | Sentinel Phrase | Permission Scope |
+|-----------|---------|-----------|-----------------|------------------|
+| quarterly-review.txt | i-quarterly | text/plain | pangolin-ledger-quarterly | Inherited |
+| incident-log.md | i-incident | text/markdown | pangolin-ledger-incident | Inherited |
+| quarterly-report.pdf | i-report | application/pdf | pangolin-ledger-pdf-report | Inherited |
+| obsolete-note.txt | i-removed | text/plain | pangolin-ledger-obsolete | Inherited (deleted) |
+| widely-shared.txt | i-paged | text/plain | - | Paged permissions |
+| unreadable-acl.txt | i-noacl | text/plain | - | ACL read fails |
+| named-grant.txt | i-named | text/plain | pangolin-ledger-named | Named user |
+| group-grant.txt | i-group | text/plain | pangolin-ledger-group | Group only |
+| org-wide.txt | i-orgwide | text/plain | pangolin-ledger-orgwide | Organisation link |
+| deep-document.txt | i-deep | text/plain | pangolin-ledger-deep | Users-scoped link |
 
 ### Sentinel Phrases
 
@@ -107,20 +112,20 @@ Each document contains a unique "pangolin-ledger-*" phrase used by tests to veri
 
 ### Permission Scenarios Tested
 
-1. **Public documents** (f-public/*) - Everyone can read
-2. **User-scoped** (f-user/named-grant.txt) - Only specific user
-3. **Group-scoped** (f-group/group-only.txt) - Only group members
-4. **Organisation link** (f-orglink/org-wide.txt) - Everyone in tenant
-5. **No ACL readable** (i-noacl) - ACL read fails, tests fallback behavior
+1. **Inherited** (public/*) - everyone in the tenant
+2. **Named user** (restricted-user/named-grant.txt) - one user only
+3. **Group only** (restricted-group/group-grant.txt) - group members only
+4. **Organisation link** (org-link/org-wide.txt) - everyone in the tenant; the anonymous link grants nothing
+5. **No ACL readable** (i-noacl) - the ACL read fails, so under the default `sharepoint.acl-fallback=fail-closed` the document is not ingested
 
 ### Test Scenarios Enabled
 
-- **Full batch sync** - All 8 documents indexed from root walk
+- **Full batch sync** - Every document indexed from the root walk
 - **Delta sync** - Change feed reports incremental updates
 - **Deletion** - obsolete-note.txt removed in delta change #1
 - **MIME filtering** - quarterly-report.pdf excluded when `EXCLUDE_MIME_TYPES=application/pdf`
 - **Path scoping** - Selecting f-orglink only indexes org-wide.txt
-- **Nested folders** - Deep nesting (f-nested/f-level-two/deep-file.txt)
+- **Nested folders** - Deep nesting (nested/level-two/deep-document.txt)
 - **ACL mapping** - Each permission type (public, user, group, org link)
 - **Browse API** - Tree navigation with inScope/traversable annotations
 
@@ -140,38 +145,28 @@ that mirrors the mock fixture structure.
 
 ### Site Structure
 
-Create a site collection (e.g., `https://yourtenantname.sharepoint.com/sites/content-lake-demo`)
-with a document library named "Shared Documents" containing:
+Use the site's default document library ("Documents", path `Shared Documents`). Generate the files with:
 
-```
-Shared Documents/
-├── Public/
-│   ├── quarterly-review.txt
-│   ├── incident-log.txt
-│   └── quarterly-report.pdf
-├── UserScoped/
-│   └── named-grant.txt
-├── GroupScoped/
-│   └── group-only.txt
-├── OrgLink/
-│   └── org-wide.txt
-└── Nested/
-    └── LevelTwo/
-        └── deep-file.txt
+```bash
+./fixtures/create-sharepoint-demo-files.sh /tmp/content-lake-demo
 ```
 
-### Document Content
+It writes this tree, with the same file names and sentinel phrases as the mock fixtures, so the
+assertions in `test/test-sharepoint.sh` match the same phrases against the real site:
 
-Each text file should contain a unique search phrase for verification:
+```
+Public/              quarterly-review.txt, incident-log.md, quarterly-report.pdf   (inherits)
+UserScoped/          named-grant.txt      pangolin-ledger-named
+GroupScoped/         group-grant.txt      pangolin-ledger-group
+OrgLink/             org-wide.txt         pangolin-ledger-orgwide
+Nested/LevelTwo/     deep-document.txt    pangolin-ledger-deep
+Bulk/                bulk-001.txt to bulk-120.txt, more than one page of children  (inherits)
+```
 
-- **quarterly-review.txt**: "This is the quarterly review for Q3 2026. Sentinel: pangolin-ledger-quarterly"
-- **incident-log.txt**: "Security incident log for September. Sentinel: pangolin-ledger-incident"
-- **named-grant.txt**: "Confidential user document. Sentinel: pangolin-ledger-user"
-- **group-only.txt**: "Shared with project team. Sentinel: pangolin-ledger-group"
-- **org-wide.txt**: "Organisation-wide announcement. Sentinel: pangolin-ledger-orgwide"
-- **deep-file.txt**: "Nested folder test document. Sentinel: pangolin-ledger-nested"
-
-The **quarterly-report.pdf** should be a real PDF containing "pangolin-ledger-pdf-report" for extraction testing.
+The `Public/` sentinels are `pangolin-ledger-quarterly`, `pangolin-ledger-incident` (markdown, so it takes
+the extraction short-circuit) and `pangolin-ledger-pdf-report` (the mock's own PDF, so it takes the
+extractor path). Every file also carries a run tag (`RUN_TAG`, a timestamp by default), so one upload cannot
+be mistaken for another. Upload the generated folders by dragging them into the library in the browser.
 
 ### Permission Setup
 
@@ -181,13 +176,22 @@ document shared only with such a group will be indexed with a correct ACL but re
 presents as a connector bug. Share with Entra ID / Microsoft 365 groups instead, which have directory object
 IDs and are resolvable.
 
+This is a limit of the product, not only of the fixtures. Content Lake honours grants to named users,
+Entra ID groups, Microsoft 365 groups and organisation links. It does not expand site groups: Microsoft
+Graph does not list their members, and SharePoint REST, which does, refuses app-only tokens obtained with a
+client secret. So a site Member or Visitor who has no other grant cannot retrieve documents that inherit the
+site's permissions. Only users named in a grant, the site owner for example, can. To make a library
+searchable by its members, also share it directly with an Entra ID or Microsoft 365 group that holds them.
+
+The inherited folders below are therefore readable only by users named in their grants. The suite queries
+them as the user Graph names on `Public/quarterly-review.txt`.
+
 Configure sharing permissions to match the test scenarios:
 
-1. **Public folder** - Share with "Anyone with the link" (or everyone in tenant)
-2. **UserScoped folder** - Share with a specific test user (e.g., testuser@yourtenant.com)
-3. **GroupScoped folder** - Share with a specific Entra ID group
-4. **OrgLink folder** - Share with an organisation link (everyone in tenant)
-5. **Nested folder** - Inherit permissions from root (public)
+1. **Public, Nested and Bulk folders** - Do nothing. They inherit from the library
+2. **UserScoped folder** - Stop sharing, then share with one named colleague, Can view
+3. **GroupScoped folder** - Stop sharing, then share with one Entra ID or Microsoft 365 group, Can view
+4. **OrgLink folder** - Share with an organisation link ("People in <your organisation>")
 
 ### PowerShell Setup Script
 
@@ -204,19 +208,53 @@ Add-PnPFolder -Name "Nested" -Folder "Shared Documents"
 Add-PnPFolder -Name "LevelTwo" -Folder "Shared Documents/Nested"
 
 # Upload sample files
-Add-PnPFile -Path "quarterly-review.txt" -Folder "Shared Documents/Public"
-Add-PnPFile -Path "incident-log.txt" -Folder "Shared Documents/Public"
-Add-PnPFile -Path "quarterly-report.pdf" -Folder "Shared Documents/Public"
-Add-PnPFile -Path "named-grant.txt" -Folder "Shared Documents/UserScoped"
-Add-PnPFile -Path "group-only.txt" -Folder "Shared Documents/GroupScoped"
-Add-PnPFile -Path "org-wide.txt" -Folder "Shared Documents/OrgLink"
-Add-PnPFile -Path "deep-file.txt" -Folder "Shared Documents/Nested/LevelTwo"
+Add-PnPFile -Path "Public/quarterly-review.txt" -Folder "Shared Documents/Public"
+Add-PnPFile -Path "Public/incident-log.md" -Folder "Shared Documents/Public"
+Add-PnPFile -Path "Public/quarterly-report.pdf" -Folder "Shared Documents/Public"
+Add-PnPFile -Path "UserScoped/named-grant.txt" -Folder "Shared Documents/UserScoped"
+Add-PnPFile -Path "GroupScoped/group-grant.txt" -Folder "Shared Documents/GroupScoped"
+Add-PnPFile -Path "OrgLink/org-wide.txt" -Folder "Shared Documents/OrgLink"
+Add-PnPFile -Path "Nested/LevelTwo/deep-document.txt" -Folder "Shared Documents/Nested/LevelTwo"
 
 # Set permissions (examples - adjust for your tenant)
-Set-PnPFolderPermission -List "Shared Documents" -Identity "Public" -User "Everyone" -AddRole "Read"
 Set-PnPFolderPermission -List "Shared Documents" -Identity "UserScoped" -User "testuser@yourtenant.com" -AddRole "Read" -ClearExisting
 Set-PnPFolderPermission -List "Shared Documents" -Identity "GroupScoped" -Group "Project Team" -AddRole "Read" -ClearExisting
 ```
+
+### Running the suite against the real site
+
+`test/test-sharepoint-real.sh` runs the connector app-only (`client-credentials`) against the site and
+checks the ACLs end to end. It is opt-in, like `test-sharepoint.sh`, and it writes nothing to the tenant.
+
+```bash
+make clean && make up-alfresco
+CONNECTOR_SYNC_USERNAME=admin CONNECTOR_SYNC_PASSWORD=admin \
+GROUP_ID=<object id of the group GroupScoped/ is shared with> \
+./test/test-sharepoint-real.sh
+```
+
+It reads every tenant value, the secret included, from a connection file outside any repository (default
+`~/Downloads/credentials/sharepoint-connection.env`, mode 600), and never from `.env.local`: `run-tests.sh` and
+`test-sharepoint.sh` load that file, and real-tenant values there would break both.
+
+Before ingesting, it reads the fixtures' own permissions from Graph. A fixture that is not shared as the
+README says stops the run with a setup message, not a connector failure. It then:
+
+- records whether `Sites.Selected` allows the change feed and the permission reads;
+- crawls and counts the documents (the 120 in `Bulk/` need a second page of children);
+- creates an Alfresco caller named exactly as Graph names the shared user, case included, because the ACL
+  stores the address verbatim, and checks the named file is retrievable by that caller only;
+- checks that a valid Microsoft Graph token is refused by rag-service (the audience check), using the Azure
+  CLI's own Graph token, so no sign-in is needed.
+
+The suite runs rag-service with `membership-lookup=user` by default. Under it, rag-service reads a caller's
+groups from the directory by address, which needs the application permission `User.ReadBasic.All`. That lets
+the suite prove the group grant with an Alfresco caller named as a group member (`GROUP_MEMBER`, by default
+the user named on the inherited fixture). The suite checks that membership in the directory first.
+`MEMBERSHIP_LOOKUP=group` skips that check, because under `group` only an object-id caller has groups.
+
+Two checks need a caller's own Entra token, which only an interactive sign-in can produce. Set
+`ENTRA_BEARER_TOKEN` to an `access_as_user` token to run them; they are reported as skipped otherwise.
 
 ---
 
@@ -291,8 +329,9 @@ in place, ready to drag into OneDrive:
 ./fixtures/create-sharepoint-demo-files.sh /tmp/content-lake-demo
 ```
 
-The folder names above are the generator's, and they are also the names the mock's fixture tree and
-`test-sharepoint.sh` use, so a result from this route is directly comparable with a mock run.
+The file names and sentinel phrases are the mock fixtures' own, and `test-sharepoint.sh` matches on the
+sentinel phrases, so a result from this route is directly comparable with a mock run. The folder names
+differ from the mock's (`public`, `restricted-user`, ...), which no assertion depends on.
 
 How to produce each ACL shape in the OneDrive web UI:
 
@@ -889,7 +928,7 @@ docker compose logs rag-service | grep -i "entra\|group"
 # Test search with different users
 curl -u testuser@yourtenant.com:password -X POST http://localhost/api/rag/search/semantic \
   -H 'Content-Type: application/json' \
-  -d '{"query": "pangolin-ledger-user"}' | jq '.resultCount'
+  -d '{"query": "pangolin-ledger-named"}' | jq '.resultCount'
 ```
 
 ---

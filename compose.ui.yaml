@@ -51,6 +51,11 @@ services:
       # Same-origin through the proxy when it is set, not the host's published port, so the browser sends this
       # origin's credential and needs no cross-origin configuration.
       CONNECTORS_URL: ${CONNECTORS_URL:-}
+      # Microsoft sign-in for the SharePoint source: the content-lake-ui registration's client id and tenant.
+      # Both empty, the default, turns it off. rag-service needs RAG_SECURITY_ENTRA_CALLER_AUTH_ENABLED=true
+      # with the same client id to accept the tokens.
+      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-}
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
