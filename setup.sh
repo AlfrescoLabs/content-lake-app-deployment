@@ -22,6 +22,21 @@ if ! echo "$VALID_PROFILES" | grep -qw "$PROFILE"; then
   exit 1
 fi
 
+# ── Load environment (same files and order as the Makefile) ───────────────────
+cd "$(dirname "$0")"
+if [ ! -f ./.env ]; then
+  err ".env not found in $(pwd)."
+  exit 1
+fi
+set -a
+# shellcheck source=/dev/null
+. ./.env
+if [ -f ./.env.local ]; then
+  # shellcheck source=/dev/null
+  . ./.env.local
+fi
+set +a
+
 hdr "Content Lake setup — profile: $PROFILE"
 
 # ── Check Docker ──────────────────────────────────────────────────────────────
@@ -32,17 +47,55 @@ if ! docker info &>/dev/null; then
 fi
 ok "Docker is running ($(docker version --format '{{.Server.Version}}' 2>/dev/null || echo 'unknown version'))"
 
+# Optional: set DOCKER_REGISTRY_LOGIN (in .env or .env.local) to a registry host to log into it first,
+# for example a private mirror that hosts the base images.
+if [ -n "${DOCKER_REGISTRY_LOGIN:-}" ]; then
+  echo "   Logging into $DOCKER_REGISTRY_LOGIN..."
+  echo "   Keep this terminal open while completing any credential or GPG unlock prompt."
+  docker login "$DOCKER_REGISTRY_LOGIN"
+  ok "Logged into $DOCKER_REGISTRY_LOGIN"
+fi
+
 # ── Check Docker Model Runner ─────────────────────────────────────────────────
 hdr "2/5  Checking Docker Model Runner..."
 if ! docker model list &>/dev/null; then
   err "Docker Model Runner is not available."
   echo "   Enable it in Docker Desktop → Settings → Features in development → Docker Model Runner"
+  echo "   WSL with Docker Engine (Ubuntu/Debian):"
+  echo "     sudo apt-get update"
+  echo "     sudo apt-get install docker-model-plugin"
+  echo "     docker model version"
+  echo "   Docs: https://docs.docker.com/ai/model-runner/get-started/#docker-engine"
+  echo "   For GPU-accelerated inference, configure GPU support for your container runtime and host system."
   exit 1
 fi
 ok "Docker Model Runner is available"
 
 # ── Pull AI models ────────────────────────────────────────────────────────────
 hdr "3/5  Pulling AI models (skip if already present)..."
+
+# Behind a TLS-inspecting proxy, the Model Runner container must trust the proxy's CA to pull models.
+# Opt-in: set MODEL_RUNNER_CA_BUNDLE to a CA bundle on the host. The container name defaults to
+# docker-model-runner (override with MODEL_RUNNER_CONTAINER).
+if [ -n "${MODEL_RUNNER_CA_BUNDLE:-}" ]; then
+  CA_BUNDLE="$MODEL_RUNNER_CA_BUNDLE"
+  RUNNER_CONTAINER="${MODEL_RUNNER_CONTAINER:-docker-model-runner}"
+  if [ ! -f "$CA_BUNDLE" ]; then
+    warn "MODEL_RUNNER_CA_BUNDLE is set but $CA_BUNDLE does not exist; skipping CA bundle injection."
+  elif docker inspect "$RUNNER_CONTAINER" &>/dev/null; then
+    if ! docker exec "$RUNNER_CONTAINER" cat /etc/ssl/certs/ca-certificates.crt 2>/dev/null | cmp -s - "$CA_BUNDLE"; then
+      echo "   Injecting CA bundle into $RUNNER_CONTAINER..."
+      docker cp "$CA_BUNDLE" "$RUNNER_CONTAINER:/etc/ssl/certs/ca-certificates.crt"
+      docker restart "$RUNNER_CONTAINER" >/dev/null
+      for _ in $(seq 1 30); do
+        docker model list &>/dev/null && break
+        sleep 1
+      done
+    fi
+  else
+    warn "Model Runner container '$RUNNER_CONTAINER' not found; skipping CA bundle injection."
+  fi
+fi
 for model in ai/mxbai-embed-large; do
   if docker model inspect "$model" &>/dev/null; then
     ok "$model already present"
