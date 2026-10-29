@@ -360,8 +360,10 @@ services:
   # -- Shared services, extended for the second instance -------------------------
 
   # Both Alfresco instances as rag.sources[] entries (Spring relaxed binding of rag.sources[n].*). The ids
-  # must be the repository ids, which exist only after each repository has bootstrapped once, so they are
-  # empty until ALFRESCO_1_SOURCE_ID and ALFRESCO_2_SOURCE_ID are set. Read them with
+  # must be the repository ids, which exist only after each repository has bootstrapped once. make
+  # up-alfresco-2 starts both repositories first, reads their ids with scripts/resolve-alfresco-source-ids.sh
+  # (which asks before writing ALFRESCO_1_SOURCE_ID and ALFRESCO_2_SOURCE_ID to .env.local), then starts
+  # rag-service with them. Without make, read them with
   #   curl -u admin:admin http://localhost/alfresco/api/discovery        (first instance)
   #   curl -u admin:admin http://localhost:8082/alfresco/api/discovery   (second instance)
   # and take repository.id from each response.
