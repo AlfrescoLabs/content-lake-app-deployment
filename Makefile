@@ -11,8 +11,10 @@
 #                           alfresco-2: postgres-2, activemq-2, alfresco-2, batch-indexer-2, batch-ingester-2,
 #                           live-ingester-2 and content-app-2, served on :8082 (ALFRESCO_2_PUBLIC_PORT).
 #                           The JVM services of both instances get a mem_limit, ~13.5g in total by default.
-#                           rag-service lists both as rag.sources[]; set ALFRESCO_1_SOURCE_ID and
-#                           ALFRESCO_2_SOURCE_ID to their repository ids once both have bootstrapped
+#                           rag-service lists both as rag.sources[], which needs both repository ids. The
+#                           target starts the two repositories first, reads their ids (scripts/
+#                           resolve-alfresco-source-ids.sh), asks before writing ALFRESCO_1_SOURCE_ID and
+#                           ALFRESCO_2_SOURCE_ID to .env.local, then starts the rest
 #                           (README.md, "Second Alfresco instance").
 #   make up-platform        Platform only: hxpr + RAG + demo UI, no Alfresco and no Nuxeo (~6 services).
 #                           The base profile for running a connector jar as the single source: pair it with
@@ -196,9 +198,18 @@ ifdef USE_LOCAL
 	  NGINX_ROOT_DIRECTIVE="return 302 /aca/;" \
 	  docker compose $(ENV_ARGS) --profile alfresco --profile alfresco-2 build --no-cache
 endif
+	@# rag-service needs the repository id of both instances, which exist only once each has bootstrapped:
+	@# start the two repositories first, resolve their ids, then start everything else with them.
+	@echo "-> Starting both Alfresco repositories first; their ids are read once they answer (first bootstrap takes minutes)..."
 	$(LOAD_ENV) $(LOCAL_ENV_OVERRIDES) $(ALFRESCO_2_COMPOSE_FILE) \
 	  NGINX_SYNC_DEFAULT_BACKEND=batch-ingester:9090 \
 	  NGINX_ROOT_DIRECTIVE="return 302 /aca/;" \
+	  docker compose $(ENV_ARGS) --profile alfresco --profile alfresco-2 up --build -d alfresco alfresco-2
+	$(LOAD_ENV) $(LOCAL_ENV_OVERRIDES) $(ALFRESCO_2_COMPOSE_FILE) \
+	  NGINX_SYNC_DEFAULT_BACKEND=batch-ingester:9090 \
+	  NGINX_ROOT_DIRECTIVE="return 302 /aca/;" \
+	  COMPOSE_ENV_ARGS="$(ENV_ARGS)" \
+	  scripts/resolve-alfresco-source-ids.sh -- \
 	  docker compose $(ENV_ARGS) --profile alfresco --profile alfresco-2 up --build -d
 	@$(call _urls,alfresco-2)
 
@@ -371,8 +382,8 @@ define _urls
 	      echo "  ACA 2      -> http://$${SERVER_NAME:-localhost}:$${ALFRESCO_2_PUBLIC_PORT:-8082}/aca/"; \
 	      echo "  Alfresco 2 -> http://$${SERVER_NAME:-localhost}:$${ALFRESCO_2_PUBLIC_PORT:-8082}/alfresco"; \
 	      echo ""; \
-	      echo "  Once both are healthy, read each repository.id from /alfresco/api/discovery and set"; \
-	      echo "  ALFRESCO_1_SOURCE_ID and ALFRESCO_2_SOURCE_ID, then run make up-alfresco-2 again."; \
+	      echo "  rag-service uses the repository ids resolved above (ALFRESCO_1_SOURCE_ID and"; \
+	      echo "  ALFRESCO_2_SOURCE_ID); make up-alfresco-2 checks them again on every run."; \
 	    elif [ "$(1)" != "alfresco" ]; then \
 	      echo "  Nuxeo    → $$base/nuxeo/ui/"; \
 	    fi; \

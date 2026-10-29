@@ -96,6 +96,7 @@ several sources of the same type.
 
 ```bash
 make up-alfresco-2     # alfresco profile + the second instance (~21 services)
+./setup.sh alfresco-2  # the same, after the prerequisite checks
 ```
 
 It lives in an override file, [`compose.alfresco-2.yaml`](compose.alfresco-2.yaml), not in the `include:`
@@ -146,7 +147,9 @@ path is fixed at `/alfresco` and ACA builds its URLs from its ECM host.
 | `ALFRESCO_2_INDEX_NAME` | `alfresco2` | OpenSearch index name (and prefix of the other three) of the second instance |
 | `ALFRESCO_2_INGESTION_FOLDER_1` | `-root-` | Folder the second batch ingester syncs |
 | `ALFRESCO_2_INGESTER_SOURCE_ID` | empty | `ALFRESCO_SOURCE_ID` of both new ingesters. Empty means the repository id |
-| `ALFRESCO_1_SOURCE_ID` / `ALFRESCO_2_SOURCE_ID` | empty | Repository ids, as `RAG_SOURCES_0_ID` / `RAG_SOURCES_1_ID` |
+| `ALFRESCO_1_SOURCE_ID` / `ALFRESCO_2_SOURCE_ID` | empty | Repository ids, as `RAG_SOURCES_0_ID` / `RAG_SOURCES_1_ID`. `make up-alfresco-2` resolves them (see "Repository ids" below) |
+| `ALFRESCO_SOURCE_IDS_NONINTERACTIVE` | empty | `1`: `make up-alfresco-2` never prompts about the ids |
+| `ALFRESCO_SOURCE_IDS_ASSUME_YES` | empty | `1`: `make up-alfresco-2` writes the resolved ids to `.env.local` without asking |
 
 Memory. No base service sets a memory limit, and the ACS and transform JVMs size their heap at 80% of
 the memory they see. With the override file loaded, the JVM services of both instances get a
@@ -164,16 +167,41 @@ the memory they see. With the override file loaded, the JVM services of both ins
 That total covers the two instances only. `postgres`, `postgres-2`, `hxpr-app`, `mongodb`, `opensearch`,
 `rag-service` and the UIs have no limit and come on top.
 
-Repository ids. `rag-service` needs the repository id of each instance as the source id. An id exists
-only after the repository has bootstrapped once, so the first start leaves both ids empty. When both
-instances are healthy, read them:
+Repository ids. `rag-service` needs the repository id of each instance as the source id. With two
+sources of type `alfresco` and no ids, it refuses to start (`rag.sources has 2 entries of type 'alfresco',
+so every one of them must set id`). An id exists only after the repository has bootstrapped once, so
+`make up-alfresco-2` (and `./setup.sh alfresco-2`) starts in two phases:
+
+1. It starts `alfresco` and `alfresco-2` alone, with their dependencies.
+2. [`scripts/resolve-alfresco-source-ids.sh`](scripts/resolve-alfresco-source-ids.sh) waits until each
+   repository answers `/alfresco/api/discovery` (up to `ALFRESCO_SOURCE_IDS_TIMEOUT` seconds, default
+   600), reads `repository.id` and compares the ids with
+   `ALFRESCO_1_SOURCE_ID` / `ALFRESCO_2_SOURCE_ID`. It checks again on every run, because `make clean`
+   gives both repositories new ids.
+3. It starts the rest of the stack with both ids, so `rag-service` never starts without them.
+
+What step 2 does with the ids:
+
+| Situation | Prompt | Yes | No |
+|---|---|---|---|
+| The ids match | none | | |
+| The ids are not set (first run) | `Write these ids to .env.local?` | `.env.local` is backed up to `.env.local.bak`, then the two lines are replaced or appended | `.env.local` is left alone. The ids are used for this run only and the lines to add are printed |
+| The ids differ (e.g. after `make clean`) | `Overwrite them in .env.local?` | Backup, then overwrite | The stack is not started. The exact edits to make are printed |
+| Both repositories report the same id | none: it stops | | |
+
+Without a terminal (CI, piped output) or with `ALFRESCO_SOURCE_IDS_NONINTERACTIVE=1`, it does not prompt:
+missing ids are used for that run only, and different ids stop the run. `ALFRESCO_SOURCE_IDS_ASSUME_YES=1`
+answers yes to every prompt.
+
+The direct `docker compose` command shown above does not resolve the ids. On that path, read them
+yourself once both instances are healthy:
 
 ```bash
 curl -s -u admin:admin http://localhost/alfresco/api/discovery | jq -r .entry.repository.id
 curl -s -u admin:admin http://localhost:8082/alfresco/api/discovery | jq -r .entry.repository.id
 ```
 
-Then set them in `.env.local` and run `make up-alfresco-2` again, which recreates `rag-service`:
+Then set them in `.env.local` and recreate `rag-service`:
 
 ```bash
 ALFRESCO_1_SOURCE_ID=<id of the first instance>
@@ -181,7 +209,7 @@ ALFRESCO_2_SOURCE_ID=<id of the second instance>
 ```
 
 The two ids must differ. If they are the same, the second instance was started from a copy of the first
-one's volumes: run `make clean` and start again.
+one's volumes: run `make clean` and start again. The script stops with that message.
 
 `test/test-two-alfresco.sh` tests this profile end to end. See [Two-Alfresco Suite](#two-alfresco-suite).
 
@@ -498,7 +526,7 @@ triggers a full re-ingest. Put overrides for any of the above in `.env.local`, w
    make up-demo          # demo UI at /
    ```
 
-   Or use the guided script: `./setup.sh [alfresco|nuxeo|full|demo]`
+   Or use the guided script: `./setup.sh [alfresco|alfresco-2|nuxeo|full|demo|platform]`
 
 For any profile that includes Nuxeo:
 
@@ -801,7 +829,7 @@ of any of those four.
 
 `test/test-two-alfresco.sh` runs against the `alfresco-2` profile. It checks that the two repositories stay
 isolated and still answer one question together. It is opt-in, so it is not a phase of `test/run-tests.sh`.
-It needs `make up-alfresco-2` already up, with `ALFRESCO_1_SOURCE_ID` and `ALFRESCO_2_SOURCE_ID` set, and
+It needs `make up-alfresco-2` already up, which resolves `ALFRESCO_1_SOURCE_ID` and `ALFRESCO_2_SOURCE_ID`, and
 the AI backend on :12434. The first check stops the run if the two repository ids are not both listed by
 `GET /api/rag/sources`.
 
