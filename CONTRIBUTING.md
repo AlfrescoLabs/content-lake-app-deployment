@@ -31,8 +31,11 @@ enumerated, and Maven needs the full reactor to resolve any subset of it, so a m
 services unrelated to the new module. Add a `src` copy only to the service stages that actually build
 the module.
 
-`compose.content-lake.yaml` holds no build instructions beyond `context`, `dockerfile`, `target` and the
-`code` context, so adding a module does not touch it. Only adding a new *service* would.
+`compose.content-lake.yaml` holds no build instructions beyond `context`, `dockerfile`, `target`, the `code`
+context and the base-image args, so adding a module does not touch it. Only adding a new *service* would. A
+new service built from `dockerfiles/Dockerfile` must forward `CONTENT_LAKE_BUILD_IMAGE` and
+`CONTENT_LAKE_RUNTIME_IMAGE` as bare args, and a new `FROM` must use a global `ARG` with a public default
+(see [docs/custom-base-images.md](docs/custom-base-images.md)).
 
 One further build depends on the module layout and is easy to miss: `acs/alfresco/Dockerfile` installs
 `common/content-lake-repo-model` into the Alfresco image and names that path twice.

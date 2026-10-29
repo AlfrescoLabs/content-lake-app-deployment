@@ -118,6 +118,7 @@ services:
         content_lake_app: ${CONTENT_LAKE_ACS_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}
       args:
         ALFRESCO_TAG: ${ALFRESCO_CE_TAG:-26.2.0}
+        ACS_MODEL_BUILD_IMAGE:
     environment:
       JAVA_TOOL_OPTIONS: >-
         -Dencryption.keystore.type=JCEKS
@@ -246,6 +247,9 @@ services:
       target: batch-ingester
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+      args:
+        - CONTENT_LAKE_BUILD_IMAGE
+        - CONTENT_LAKE_RUNTIME_IMAGE
     environment:
       ACTIVEMQ_URL: tcp://activemq-2:61616
       ACTIVEMQ_USER: ${ACTIVEMQ_USER}
@@ -298,6 +302,9 @@ services:
       target: live-ingester
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+      args:
+        - CONTENT_LAKE_BUILD_IMAGE
+        - CONTENT_LAKE_RUNTIME_IMAGE
     environment:
       ACTIVEMQ_URL: tcp://activemq-2:61616
       ACTIVEMQ_USER: ${ACTIVEMQ_USER}
@@ -346,6 +353,8 @@ services:
       dockerfile: docker/Dockerfile
       args:
         ACA_TAG: ${ACA_TAG:-7.3.0}
+        ACA_BUILDER_IMAGE:
+        ACA_RUNTIME_IMAGE:
     environment:
       APP_CONFIG_ECM_HOST: ${ALFRESCO_2_PUBLIC_BASE_URL:-http://localhost:${ALFRESCO_2_PUBLIC_PORT:-8082}}
       APP_CONFIG_RAG_URL: ${ALFRESCO_2_PUBLIC_BASE_URL:-http://localhost:${ALFRESCO_2_PUBLIC_PORT:-8082}}/api/rag

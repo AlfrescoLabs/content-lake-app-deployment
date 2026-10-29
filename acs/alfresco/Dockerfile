@@ -15,11 +15,13 @@
 
 # Global ARGs must be declared before any FROM so they can be used in FROM instructions.
 ARG ALFRESCO_TAG
+# Override (for example with a private registry mirror) by setting ACS_MODEL_BUILD_IMAGE; compose forwards it when set.
+ARG ACS_MODEL_BUILD_IMAGE=maven:3.9.9-eclipse-temurin-21-alpine
 
 ############################################
 # Stage 1: Build content-lake-repo-model from source
 ############################################
-FROM maven:3.9.9-eclipse-temurin-21-alpine AS model-build
+FROM ${ACS_MODEL_BUILD_IMAGE} AS model-build
 
 WORKDIR /src
 

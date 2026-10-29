@@ -28,11 +28,20 @@
 # Do NOT collapse the `poms` stage into a whole-context copy. Copying sources alongside POMs puts every
 # source file in the cache key for go-offline, which then re-resolves dependencies on every code change.
 
+# Base images. The defaults are public images; override any of them (for example with a private registry
+# mirror or hardened images) by setting the variable of the same name, which compose forwards as a build
+# arg when it is set. Global ARGs must be declared before the first FROM to be usable in FROM lines.
+#   CONTENT_LAKE_BUILD_IMAGE    Maven + JDK 25, used by the `poms` stage and every build-* stage
+#   CONTENT_LAKE_RUNTIME_IMAGE  JRE 25 on Alpine (apk, busybox adduser/addgroup), the service images' base
+#   MOCK_GRAPH_IMAGE            JDK 25 on Alpine, the mock-graph target
+ARG CONTENT_LAKE_BUILD_IMAGE=maven:3.9.11-eclipse-temurin-25-alpine
+ARG CONTENT_LAKE_RUNTIME_IMAGE=eclipse-temurin:25-jre-alpine
+ARG MOCK_GRAPH_IMAGE=eclipse-temurin:25-jdk-alpine
 
 ############################################################
 # poms: the ONLY place the reactor's module list is enumerated
 ############################################################
-FROM maven:3.9.11-eclipse-temurin-25-alpine AS poms
+FROM ${CONTENT_LAKE_BUILD_IMAGE} AS poms
 WORKDIR /workspace
 
 # Group aggregators
@@ -62,7 +71,8 @@ COPY --from=code plugin-runtime/plugin-batch-ingester/pom.xml plugin-runtime/plu
 ############################################################
 # runtime-base: everything the service images share
 ############################################################
-FROM eclipse-temurin:25-jre-alpine AS runtime-base
+FROM ${CONTENT_LAKE_RUNTIME_IMAGE} AS runtime-base
+USER root
 RUN apk add --no-cache gcompat
 RUN addgroup -S app && adduser -S -G app app
 WORKDIR /app
@@ -249,7 +259,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
 # A JDK rather than the shared runtime-base, which is a JRE: `java Foo.java` compiles in memory and needs
 # a compiler. The same file runs in process from the connector's unit tests, so there is one copy of the
 # mock's behaviour rather than a container drifting from what the tests assert.
-FROM eclipse-temurin:25-jdk-alpine AS mock-graph
+FROM ${MOCK_GRAPH_IMAGE} AS mock-graph
+USER root
 RUN addgroup -S app && adduser -S -G app app
 WORKDIR /app
 # The package directories are preserved rather than flattened, because the source launcher refuses a file

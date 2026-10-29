@@ -53,6 +53,7 @@ services:
         content_lake_app: ${CONTENT_LAKE_ACS_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}
       args:
         ALFRESCO_TAG: ${ALFRESCO_CE_TAG:-26.2.0}
+        ACS_MODEL_BUILD_IMAGE:
     environment:
       JAVA_TOOL_OPTIONS: >-
         -Dencryption.keystore.type=JCEKS

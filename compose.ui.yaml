@@ -11,6 +11,8 @@ services:
       dockerfile: docker/Dockerfile
       args:
         ACA_TAG: ${ACA_TAG:-7.3.0}
+        ACA_BUILDER_IMAGE:
+        ACA_RUNTIME_IMAGE:
     environment:
       APP_CONFIG_ECM_HOST: ${PUBLIC_BASE_URL:-http://localhost:${PUBLIC_PORT:-80}}
       APP_CONFIG_RAG_URL: ${PUBLIC_BASE_URL:-http://localhost:${PUBLIC_PORT:-80}}/api/rag
