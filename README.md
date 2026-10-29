@@ -28,6 +28,8 @@ cd content-lake-app-deployment
 ```
 
 The setup script handles everything for a first run. For manual control see [First Run](#first-run) below.
+For a private registry, a mirror, hardened base images or a TLS-inspecting proxy, see
+[docs/custom-base-images.md](docs/custom-base-images.md).
 
 ## Profiles
 
@@ -273,6 +275,7 @@ figures and where they come from.
 | [docs/deployment-nuxeo.md](docs/deployment-nuxeo.md) | Nuxeo stack setup, REST API reference, scope/auth config, audit live sync |
 | [docs/deployment-rag.md](docs/deployment-rag.md) | RAG service configuration, REST API, security, conversation memory, observability |
 | [docs/extraction.md](docs/extraction.md) | Text extraction paths, markdown vs plaintext, the `transform-extras` profile |
+| [docs/custom-base-images.md](docs/custom-base-images.md) | Replacing the base images of the builds, registry login, proxy CA bundle, troubleshooting |
 | [docs/DEPLOY_EC2.md](docs/DEPLOY_EC2.md) | Step-by-step guide to running the full stack on AWS EC2 |
 
 ## Service Topology
@@ -627,6 +630,8 @@ Key overrides:
 | `EXTRACTION_ENGINE_TIMEOUT_MS` | `300000` | Read timeout for the above. Do not lower it: `convert2md` needs tens of seconds per PDF |
 | `TRANSFORM_EXTRAS_TAG` | `1.1.0` | `transform-liteparse` image tag. 1.1.0 or newer is required for spreadsheet tables |
 | `TRANSFORM_CONVERT2MD_TAG` | `1.1.0` | `transform-convert2md` image tag |
+| `CONTENT_LAKE_BUILD_IMAGE`, `CONTENT_LAKE_RUNTIME_IMAGE`, `MOCK_GRAPH_IMAGE`, `ACS_MODEL_BUILD_IMAGE`, `HXPR_BUILD_IMAGE`, `HXPR_RUNTIME_IMAGE`, `ACA_BUILDER_IMAGE`, `ACA_RUNTIME_IMAGE` | *(public images)* | Base images of the builds, for a private mirror or hardened images. Unset keeps the defaults. See [docs/custom-base-images.md](docs/custom-base-images.md) |
+| `DOCKER_REGISTRY_LOGIN`, `MODEL_RUNNER_CA_BUNDLE` | *(empty)* | Registry host to `docker login` to before pulls; CA bundle for the Model Runner container behind a TLS-inspecting proxy. See [docs/custom-base-images.md](docs/custom-base-images.md#registry-login-and-proxy-ca) |
 
 On Linux, override `MODEL_RUNNER_URL=http://host.docker.internal:12434` in `.env.local`.
 

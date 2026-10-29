@@ -1,4 +1,9 @@
-FROM maven:3-eclipse-temurin-25-alpine AS build
+# Base images. The defaults are public images; override them (for example with a private registry mirror
+# or hardened images) by setting HXPR_BUILD_IMAGE / HXPR_RUNTIME_IMAGE, which compose forwards when set.
+ARG HXPR_BUILD_IMAGE=maven:3-eclipse-temurin-25-alpine
+ARG HXPR_RUNTIME_IMAGE=amazoncorretto:25-alpine
+
+FROM ${HXPR_BUILD_IMAGE} AS build
 
 ARG HXPR_GIT_URL=https://github.com/Hyland/OpenArch.git
 ARG HXPR_GIT_REF=main
@@ -6,6 +11,7 @@ ARG HXPR_GIT_REF=main
 # When set, the clone is done without --depth 1 so the SHA can be checked out.
 ARG HXPR_GIT_SHA=
 
+USER root
 RUN apk add --no-cache git bash
 
 WORKDIR /workspace
@@ -25,9 +31,10 @@ WORKDIR /workspace/hxpr
 RUN --mount=type=cache,target=/root/.m2/repository \
     mvn --no-transfer-progress -nsu -pl server/openarch-app -am package -DskipTests
 
-# Public Amazon Corretto 25 on Alpine. The runtime stage needs only a JRE 25, curl and busybox
-# adduser/addgroup, so a public base keeps the image build free of credential-gated registries.
-FROM amazoncorretto:25-alpine
+# Public Amazon Corretto 25 on Alpine by default, overridable with HXPR_RUNTIME_IMAGE. The runtime stage needs
+# only a JRE 25, apk (to install curl) and busybox adduser/addgroup, so any image providing those works, and
+# the default keeps the image build free of credential-gated registries.
+FROM ${HXPR_RUNTIME_IMAGE}
 
 ARG RUN_JAVA_VERSION=1.3.8
 ARG GROUP_NAME=Hyland
@@ -38,6 +45,7 @@ ARG USER_ID=33010
 ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en'
 ENV JAVA_OPTIONS=""
 
+USER root
 RUN apk add --no-cache curl \
     && mkdir /deployments \
     && curl https://repo1.maven.org/maven2/io/fabric8/run-java-sh/${RUN_JAVA_VERSION}/run-java-sh-${RUN_JAVA_VERSION}-sh.sh -o /deployments/run-java.sh

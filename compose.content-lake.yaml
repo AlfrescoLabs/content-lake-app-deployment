@@ -21,6 +21,10 @@ services:
       target: batch-ingester
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+      # Bare names: forwarded only when set, otherwise the Dockerfile's public default image applies.
+      args:
+        - CONTENT_LAKE_BUILD_IMAGE
+        - CONTENT_LAKE_RUNTIME_IMAGE
     environment:
       ACTIVEMQ_URL: ${CONTENT_LAKE_PERMISSION_SYNC_BROKER_URL:-tcp://activemq:61616}
       ACTIVEMQ_USER: ${ACTIVEMQ_USER}
@@ -91,6 +95,9 @@ services:
       target: live-ingester
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+      args:
+        - CONTENT_LAKE_BUILD_IMAGE
+        - CONTENT_LAKE_RUNTIME_IMAGE
     environment:
       ACTIVEMQ_URL: tcp://activemq:61616
       ACTIVEMQ_USER: ${ACTIVEMQ_USER}
@@ -151,6 +158,9 @@ services:
       target: rag-service
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+      args:
+        - CONTENT_LAKE_BUILD_IMAGE
+        - CONTENT_LAKE_RUNTIME_IMAGE
     environment:
       # Overridable, with the stack's own values as the defaults, so nothing changes for a normal run. Set
       # either to the empty string and that source's caller authentication declines without a call, which is
@@ -404,6 +414,9 @@ services:
       target: nuxeo-batch-ingester
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+      args:
+        - CONTENT_LAKE_BUILD_IMAGE
+        - CONTENT_LAKE_RUNTIME_IMAGE
     environment:
       NUXEO_URL: http://host.docker.internal:8081/nuxeo
       NUXEO_USERNAME: ${NUXEO_USERNAME:-Administrator}
@@ -472,6 +485,9 @@ services:
       target: plugin-batch-ingester
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+      args:
+        - CONTENT_LAKE_BUILD_IMAGE
+        - CONTENT_LAKE_RUNTIME_IMAGE
     ports:
       # Published rather than reached through the proxy's `?sourceType=` map, which cannot serve this
       # service: the key would have to be the source type the mounted jar declares, and that is unknown
@@ -752,6 +768,8 @@ services:
       target: mock-graph
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+      args:
+        - MOCK_GRAPH_IMAGE
     ports:
       # Published so the fixtures can be inspected with curl while diagnosing a run.
       - "${MOCK_GRAPH_PORT:-8099}:8099"
@@ -779,6 +797,9 @@ services:
       target: nuxeo-live-ingester
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+      args:
+        - CONTENT_LAKE_BUILD_IMAGE
+        - CONTENT_LAKE_RUNTIME_IMAGE
     environment:
       NUXEO_URL: http://host.docker.internal:8081/nuxeo
       NUXEO_USERNAME: ${NUXEO_USERNAME:-Administrator}

@@ -18,3 +18,6 @@ services:
         HXPR_GIT_URL: ${HXPR_GIT_URL:-https://github.com/Hyland/OpenArch.git}
         HXPR_GIT_REF: ${HXPR_GIT_REF:-main}
         HXPR_GIT_SHA: ${HXPR_GIT_SHA:-}
+        # Null values: forwarded only when set, otherwise the Dockerfile's public default image applies.
+        HXPR_BUILD_IMAGE:
+        HXPR_RUNTIME_IMAGE:
