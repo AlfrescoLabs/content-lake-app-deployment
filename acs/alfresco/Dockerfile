@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.7
 #
 # The eighth build that depends on content-lake-app's module layout, and the one that is easy to miss:
-# the other seven are the service images in dockerfiles/Dockerfile. This one is not a Content Lake
-# service at all, it is the Alfresco repository with the Content Lake content model installed into it.
+# the other seven are the service images in dockerfiles/Dockerfile. This one is not an App for OpenArch
+# service at all, it is the Alfresco repository with the App for OpenArch content model installed into it.
 #
 # It names common/content-lake-repo-model twice, below. If that module moves, both lines change.
 # Unlike the service images it copies the whole source context rather than enumerating POMs, so adding

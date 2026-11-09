@@ -1,6 +1,6 @@
 # Deployment -- Nuxeo Stack
 
-This guide covers Nuxeo-specific setup for Content Lake. For the full stack deployment see
+This guide covers Nuxeo-specific setup for App for OpenArch. For the full stack deployment see
 [deployment-alfresco.md](deployment-alfresco.md).
 
 ---
@@ -96,7 +96,7 @@ WHERE ecm:path STARTSWITH '/default-domain/workspaces'
 
 ## Text Extraction
 
-Nuxeo's `TransformService` API is deprecated. Content Lake uses `ConversionService` server-side
+Nuxeo's `TransformService` API is deprecated. App for OpenArch uses `ConversionService` server-side
 through the REST `@convert` adapter:
 
 ```
@@ -111,7 +111,7 @@ Do not use embedded Apache Tika in the main adapter path.
 
 ## Scope Resolution
 
-Content Lake uses a **hybrid scope model**: configuration provides the fallback root paths and
+App for OpenArch uses a **hybrid scope model**: configuration provides the fallback root paths and
 document types; per-folder facets provide dynamic runtime control without a service restart.
 
 ### Configuration fallback
@@ -149,7 +149,7 @@ overrides any ancestor inclusion.
 The custom Polymer element `content-lake-folder-control` is injected into the Nuxeo Web UI
 document toolbar (`DOCUMENT_ACTIONS` slot). It renders only on Folderish documents.
 
-**To enable a folder for Content Lake ingestion:**
+**To enable a folder for App for OpenArch ingestion:**
 
 1. Log in to the Nuxeo Web UI and navigate to the folder.
 2. Click the **Content Lake** icon (`device-hub`) in the document toolbar.

@@ -20,7 +20,7 @@
 # database, so a copy of the first instance's volumes would give the second instance the same id, and the
 # two sources could not be told apart.
 #
-# Memory. The ACS and transform JVMs size their heap with MaxRAMPercentage=80 and the Content Lake JVMs
+# Memory. The ACS and transform JVMs size their heap with MaxRAMPercentage=80 and the App for OpenArch JVMs
 # with MaxRAMPercentage=75, which reads the host memory when no limit is set. Two instances on one host
 # would each try to take most of it, so every JVM service of both instances gets a limit here. Defaults:
 #

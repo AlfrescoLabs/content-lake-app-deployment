@@ -1,15 +1,18 @@
-# Content Lake App Deployment
+# App for OpenArch: Deployment
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://docs.docker.com/compose/)
 [![Status](https://img.shields.io/badge/Status-PoC-yellow.svg)]()
 [![Built on Hyland OpenArch](https://img.shields.io/badge/Built%20on-Hyland%20OpenArch-0b5394.svg)](https://github.com/Hyland/OpenArch)
 
-Self-contained deployment for Content Lake App -- ingests content from Alfresco and Nuxeo into [Hyland OpenArch](https://github.com/Hyland/OpenArch) (hxpr) for hybrid semantic search and RAG.
+Self-contained deployment for App for OpenArch -- ingests content from Alfresco and Nuxeo into [Hyland OpenArch](https://github.com/Hyland/OpenArch) (hxpr) for hybrid semantic search and RAG.
 
-## Content Lake Ecosystem
+> [!IMPORTANT]
+> **Not an official Hyland product.** App for OpenArch is not Hyland OpenArch. It is in the [AlfrescoLabs](https://github.com/AlfrescoLabs) organization on GitHub because Hyland does not officially support it. Hyland OpenArch itself is at [github.com/hyland/OpenArch](https://github.com/hyland/OpenArch).
 
-Part of the **Content Lake** ecosystem -- a PoC for ingesting Alfresco and Nuxeo content into the [Hyland OpenArch](https://github.com/Hyland/OpenArch) (hxpr) engine for hybrid semantic search and RAG.
+## App for OpenArch projects
+
+Part of the **App for OpenArch** projects -- a PoC for ingesting Alfresco and Nuxeo content into the [Hyland OpenArch](https://github.com/Hyland/OpenArch) (hxpr) engine for hybrid semantic search and RAG. Repository, module and configuration names use `content-lake`.
 
 | Repo | Role |
 |---|---|
@@ -209,7 +212,7 @@ infrastructure (network, named volumes, build secrets) and pulls in the rest via
 | [`compose.yaml`](compose.yaml) | Shared network, volumes, secrets + `include:` list |
 | [`compose.alfresco.yaml`](compose.alfresco.yaml) | Alfresco: postgres, activemq, alfresco, transform-core-aio, batch-indexer\*, control-center\* |
 | [`compose.hxpr.yaml`](compose.hxpr.yaml) | HXPR platform: hxpr-app, mongodb, opensearch, opensearch-dashboards (`debug` profile) |
-| [`compose.content-lake.yaml`](compose.content-lake.yaml) | Content Lake services: batch-ingester, live-ingester, rag-service, nuxeo-batch-ingester, nuxeo-live-ingester, plugin-batch-ingester, mock-graph |
+| [`compose.content-lake.yaml`](compose.content-lake.yaml) | App for OpenArch services: batch-ingester, live-ingester, rag-service, nuxeo-batch-ingester, nuxeo-live-ingester, plugin-batch-ingester, mock-graph |
 | [`compose.ui.yaml`](compose.ui.yaml) | UI and proxy: content-app, content-lake-app-ui (demo only), proxy |
 | [`compose.observability.yaml`](compose.observability.yaml) | Trace backend for the RAG spans: otel-lgtm (`observability` profile) |
 | [`compose.alfresco-2.yaml`](compose.alfresco-2.yaml) | Override file, not included: a second Alfresco instance (`alfresco-2` profile), see [Second Alfresco instance](#second-alfresco-instance-alfresco-2) |
@@ -393,7 +396,7 @@ Notes:
   (repository search, fed by `batch-indexer`) and `nuxeo_embeddings*` (hxpr semantic search). There
   are no cross-index reads. On a clean deploy the batch indexer starts at "now" and indexes content
   created while it runs; the archive/trashcan search scope is not supported by the OpenSearch module.
-- Docker Model Runner is an external dependency used by the Content Lake services, not a Compose service in this repository.
+- Docker Model Runner is an external dependency used by the App for OpenArch services, not a Compose service in this repository.
 
 ## What Had To Stay From The Alfresco Side
 
@@ -526,7 +529,7 @@ also publishes the parts that you need to study, rebuild or audit the model:
 | Checkpoints of every stage | base, SFT, DPO and final models, all on Hugging Face |
 | Technical report | [arXiv 2512.13961](https://arxiv.org/abs/2512.13961) |
 
-This matters for Content Lake. The project keeps the documents, the index and the
+This matters for App for OpenArch. The project keeps the documents, the index and the
 inference on infrastructure that you run. With Olmo 3 the model follows the same
 rule: you can see what data it was trained on and how, and nothing depends on a
 licence that a vendor can change.
@@ -833,7 +836,7 @@ See [docs/DEPLOY_EC2.md](docs/DEPLOY_EC2.md) for a step-by-step guide to running
 
 - The engine is the published Hyland OpenArch image `ghcr.io/hyland/openarch-app-jvm`, pinned by `OPENARCH_VERSION`. The source build (`compose.hxpr-build.yaml`) needs no credentials.
 - content-lake-app authenticates to the engine with HTTP Basic (`HXPR_USERNAME` / `HXPR_PASSWORD`).
-- All Content Lake Java services (`batch-ingester`, `live-ingester`, ingesters, `rag-service`) build from source fetched directly from GitHub -- no local Java checkout needed.
+- All App for OpenArch Java services (`batch-ingester`, `live-ingester`, ingesters, `rag-service`) build from source fetched directly from GitHub -- no local Java checkout needed.
 - The repository model is injected directly into the Alfresco image from this repo.
 - The ACA UI is exposed at `/aca/` in every profile where it is enabled, so its context path stays stable across stacks.
 - The demo UI (`content-lake-app-ui`) is served at `/` only in the `demo` profile.

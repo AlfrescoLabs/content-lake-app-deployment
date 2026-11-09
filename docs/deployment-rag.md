@@ -1,7 +1,7 @@
 # Deployment -- RAG Service
 
 The `rag-service` Spring Boot app provides semantic search, hybrid search, and RAG (Retrieval-
-Augmented Generation) over content indexed by the Content Lake ingesters.
+Augmented Generation) over content indexed by the App for OpenArch ingesters.
 
 ---
 

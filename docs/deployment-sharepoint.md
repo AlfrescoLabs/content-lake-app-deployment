@@ -176,7 +176,7 @@ document shared only with such a group will be indexed with a correct ACL but re
 presents as a connector bug. Share with Entra ID / Microsoft 365 groups instead, which have directory object
 IDs and are resolvable.
 
-This is a limit of the product, not only of the fixtures. Content Lake honours grants to named users,
+This is a limit of the product, not only of the fixtures. App for OpenArch honours grants to named users,
 Entra ID groups, Microsoft 365 groups and organisation links. It does not expand site groups: Microsoft
 Graph does not list their members, and SharePoint REST, which does, refuses app-only tokens obtained with a
 client secret. So a site Member or Visitor who has no other grant cannot retrieve documents that inherit the

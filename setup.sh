@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================
-# Content Lake — First-run setup script
+# App for OpenArch — First-run setup script
 # Validates prerequisites, pulls AI models,
 # and starts the stack.
 # Usage: ./setup.sh [alfresco|nuxeo|full|demo|platform]  (default: alfresco)
@@ -22,7 +22,7 @@ if ! echo "$VALID_PROFILES" | grep -qw "$PROFILE"; then
   exit 1
 fi
 
-hdr "Content Lake setup — profile: $PROFILE"
+hdr "App for OpenArch setup — profile: $PROFILE"
 
 # ── Check Docker ──────────────────────────────────────────────────────────────
 hdr "1/5  Checking Docker..."
@@ -72,7 +72,7 @@ if [[ "$PROFILE" == "nuxeo" || "$PROFILE" == "full" || "$PROFILE" == "demo" ]]; 
 fi
 
 # ── Start the stack ───────────────────────────────────────────────────────────
-hdr "5/5  Starting Content Lake (profile: $PROFILE)..."
+hdr "5/5  Starting App for OpenArch (profile: $PROFILE)..."
 echo "   First build downloads and compiles Java source — allow 20–40 minutes."
 echo "   Subsequent starts are fast (images are cached)."
 echo ""

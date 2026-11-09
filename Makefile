@@ -1,5 +1,5 @@
 # =============================================================
-# Content Lake — Deployment Makefile
+# App for OpenArch — Deployment Makefile
 # =============================================================
 # Usage:
 #   make up-alfresco        Alfresco + HXPR + RAG + ACA UI  (~14 services)

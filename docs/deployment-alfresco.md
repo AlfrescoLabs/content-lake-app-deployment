@@ -12,7 +12,7 @@ All commands run from `content-lake-app-deployment/`.
 
 ## Alfresco Requirements
 
-The following Alfresco-side components are required for Content Lake to function:
+The following Alfresco-side components are required for App for OpenArch to function:
 
 - **`content-lake-repo-model` module** installed in Alfresco Repository so the `cl:indexed` and
   `cl:excludeFromLake` aspects exist. The same module contains the repository-side ACL
@@ -53,7 +53,7 @@ Wiring in `compose.alfresco.yaml`:
   dictionary, and the one bundled in the image lists only stock Alfresco namespaces. Custom models
   are dropped from the index with `impossible to get prefixed name of <property>` in the log, so
   `ALFRESCO_REINDEX_PREFIXES_FILE` points at `acs/search/reindex.prefixes-file.json`, which adds
-  the `cl` prefix for the Content Lake model. **Add an entry there for every new custom model**, or
+  the `cl` prefix for the App for OpenArch model. **Add an entry there for every new custom model**, or
   its aspects and properties will be missing from `alfresco` while the nodes themselves are indexed
   -- AFTS then returns 0 hits for any query combining those fields with a non-transactional
   predicate (`ANCESTOR:`, `ID:`, facets), while a simple `ASPECT:"cl:indexed"` still looks correct

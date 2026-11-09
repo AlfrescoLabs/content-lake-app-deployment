@@ -1,6 +1,6 @@
 # Contributing
 
-This project is part of the **Content Lake** PoC ecosystem. Contributions are welcome.
+This project is part of the **App for OpenArch** PoC projects. Contributions are welcome.
 
 ## Before You Start
 
@@ -22,7 +22,7 @@ This project is part of the **Content Lake** PoC ecosystem. Contributions are we
 
 ## Service Dockerfiles
 
-All seven Content Lake service images are built from a single file, `dockerfiles/Dockerfile`. Each
+All seven App for OpenArch service images are built from a single file, `dockerfiles/Dockerfile`. Each
 service is a build target, selected from `compose.content-lake.yaml` with `target:`.
 
 When adding a new Maven module to `content-lake-app`, add one `COPY --from=code <group>/<module>/pom.xml`

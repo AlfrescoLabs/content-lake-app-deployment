@@ -1,4 +1,4 @@
-# compose.content-lake.yaml — Content Lake ingestion and RAG services
+# compose.content-lake.yaml — App for OpenArch ingestion and RAG services
 # Part of the content-lake-app stack; loaded via include: in compose.yaml.
 # Profiles: alfresco, full, demo (Alfresco ingesters + live ingester); nuxeo, full, demo (Nuxeo ingesters + live ingester);
 #           all profiles (rag-service)
@@ -838,7 +838,7 @@ services:
   #
   #   EXTRACTION_FORMAT=auto docker compose --profile alfresco --profile transform-extras up -d
   #
-  # Content Lake talks the alfresco-transform-core /transform protocol to it directly rather than
+  # App for OpenArch talks the alfresco-transform-core /transform protocol to it directly rather than
   # through a repository, so the same engine serves the Alfresco, Nuxeo and filesystem connectors.
   # For Alfresco set TRANSFORM_URL; for Nuxeo and filesystem set EXTRACTION_ENGINE_URL. Either way
   # EXTRACTION_FORMAT must be auto or markdown, or the engine is still asked for text/plain.

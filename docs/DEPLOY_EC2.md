@@ -475,7 +475,7 @@ Replace `<EC2_PUBLIC_IP_OR_DOMAIN>` with your instance's IP or domain name.
 
 | URL | Description |
 |---|---|
-| `http://<EC2_PUBLIC_IP_OR_DOMAIN>/` | Content Lake UI |
+| `http://<EC2_PUBLIC_IP_OR_DOMAIN>/` | App for OpenArch: UI |
 | `http://<EC2_PUBLIC_IP_OR_DOMAIN>/alfresco/` | Alfresco Repository |
 | `http://<EC2_PUBLIC_IP_OR_DOMAIN>/admin/` | Alfresco Control Center |
 | `http://<EC2_PUBLIC_IP_OR_DOMAIN>/api/rag/` | RAG Service |

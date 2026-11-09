@@ -1,6 +1,6 @@
-# Content Lake -- End-to-End Testing Plan
+# App for OpenArch -- End-to-End Testing Plan
 
-This document defines the full test suite for validating a Content Lake deployment against
+This document defines the full test suite for validating an App for OpenArch deployment against
 Alfresco and Nuxeo. Each test case specifies: the action (curl command), the expected HTTP
 status, and the key fields to verify in the response.
 

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# One Dockerfile for every Content Lake service image. Each service is a build target, selected from
+# One Dockerfile for every App for OpenArch service image. Each service is a build target, selected from
 # compose with `target:`:
 #
 #   build:
