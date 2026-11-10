@@ -11,6 +11,10 @@
 #   - Alfresco and Nuxeo content are indexed in full mode
 #   - semantic, hybrid, and prompt RAG endpoints work with shared repository fixtures
 #   - RAG accepts UI-style Alfresco tickets and Nuxeo authentication tokens
+#
+# Environment variables:
+#   ALF_AUTH     Alfresco admin, user:password (default: admin:admin)
+#   NUXEO_AUTH   Nuxeo admin, user:password (default: Administrator:Administrator)
 
 set -uo pipefail
 
@@ -23,9 +27,9 @@ curl() { command curl ${CURL_TLS} "$@"; }
 
 ALF_BASE="${SCHEME}://localhost/alfresco/api/-default-/public/alfresco/versions/1"
 ALF_TICKET_URL="${SCHEME}://localhost/alfresco/api/-default-/public/authentication/versions/1/tickets"
-ALF_AUTH='admin:admin'
+ALF_AUTH="${ALF_AUTH:-admin:admin}"
 NUXEO_BASE='http://localhost:8081/nuxeo/api/v1'
-NUXEO_AUTH='Administrator:Administrator'
+NUXEO_AUTH="${NUXEO_AUTH:-Administrator:Administrator}"
 SYNC_URL="${SCHEME}://localhost/api/sync"
 RAG_URL="${SCHEME}://localhost/api/rag"
 SHARED_USER='rag-user'
