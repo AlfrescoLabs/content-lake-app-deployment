@@ -347,8 +347,14 @@ fi
 
 section "Start plugin-batch-ingester with the SharePoint connector"
 info "Ingesting drive ${DRIVE_ID} from ${MOCK_INTERNAL} as source ${QUALIFIED_SOURCE}"
-if ! dc build plugin-batch-ingester; then
+if ! dc build connector-init plugin-batch-ingester; then
   fail "S7: plugin-batch-ingester image did not build"
+  exit 1
+fi
+# connector-init copies the jars of ./connectors into the volume that plugin-batch-ingester loads from.
+# `--no-deps` below would skip it, so it runs to completion first.
+if ! dc run --rm --no-deps connector-init >/dev/null; then
+  fail "S7: connector-init did not put the connector jar in place"
   exit 1
 fi
 if ! dc up -d --no-deps plugin-batch-ingester; then

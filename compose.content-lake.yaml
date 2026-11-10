@@ -453,13 +453,50 @@ services:
     networks:
       - stack
 
+  connector-init:
+    # One-shot, before plugin-batch-ingester: fills the connector-jars volume that it loads from. The jars
+    # in CONNECTOR_PLUGIN_PATH win when there are any, which keeps the drop-a-jar workflow of
+    # connectors/README.md. Otherwise it copies the shipped jar of CONNECTOR_SOURCE_TYPE (filesystem, cmis
+    # or sharepoint), built by the `connectors` stage from the same `code` context as the services, so no
+    # Maven run on the host is needed. The volume is emptied first, so a jar never outlives its source.
+    profiles: [connector]
+    image: content-lake-app/connector-init:local
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile
+      target: connectors
+      additional_contexts:
+        code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
+    environment:
+      CONNECTOR_SOURCE_TYPE: ${CONNECTOR_SOURCE_TYPE:-}
+    volumes:
+      - "${CONNECTOR_PLUGIN_PATH:-./connectors}:/user-connectors:ro"
+      - connector-jars:/out
+    network_mode: none
+    command:
+      - /bin/sh
+      - -c
+      - |
+          set -e
+          rm -f /out/*.jar
+          if ls /user-connectors/*.jar >/dev/null 2>&1; then
+            cp /user-connectors/*.jar /out/
+            echo "connector-init: using the jars in CONNECTOR_PLUGIN_PATH"
+          elif [ -n "$$CONNECTOR_SOURCE_TYPE" ] && [ -f "/connectors/$$CONNECTOR_SOURCE_TYPE-connector.jar" ]; then
+            cp "/connectors/$$CONNECTOR_SOURCE_TYPE-connector.jar" /out/
+            echo "connector-init: using the shipped $$CONNECTOR_SOURCE_TYPE connector"
+          else
+            echo "connector-init: no jar in CONNECTOR_PLUGIN_PATH, and CONNECTOR_SOURCE_TYPE '$$CONNECTOR_SOURCE_TYPE' is not a shipped connector (filesystem, cmis, sharepoint)" >&2
+            exit 1
+          fi
+
   plugin-batch-ingester:
     # Opt-in profile only: combine with a base stack that provides hxpr, e.g.
     #   docker compose --profile alfresco --profile connector up -d
     #
     # The ingester whose source is a plugin connector (#132). Unlike every other ingester it builds no
-    # source adapter: the client comes from a jar in ./connectors at startup. With that directory empty
-    # this service fails to start, deliberately, because it has nothing it could ingest from.
+    # source adapter: the client comes from the jar that connector-init puts in the connector-jars volume,
+    # either a jar from ./connectors or the shipped connector of CONNECTOR_SOURCE_TYPE.
     #
     # A connector's own settings are passed here like any other environment variable, using the names its
     # schema declares. Hyphens become underscores, so `sample-directory.root-path` is
@@ -695,9 +732,9 @@ services:
       # Content for a connector that reads a mounted path, such as the sample directory connector.
       # Override with CONNECTOR_HOST_PATH. A connector that talks to a remote repository ignores it.
       - "${CONNECTOR_HOST_PATH:-./filesystem-data}:/data/connector:ro"
-      # Connector plugins (#124): any jar dropped in here is discovered at startup. For this service the
-      # directory is not optional, since the jar it finds here is its only source.
-      - "${CONNECTOR_PLUGIN_PATH:-./connectors}:/opt/content-lake/connectors:ro"
+      # Connector plugins (#124), filled by connector-init. For this service the directory is not
+      # optional, since the jar it finds here is its only source.
+      - connector-jars:/opt/content-lake/connectors:ro
       # The only writable mount on this service. A named volume rather than a bind mount on purpose: it
       # is wiped by `make clean` along with the index, which is what the standing "start every run from
       # an empty index" rule wants. A bind mount would survive `make clean` and reintroduce exactly the
@@ -723,6 +760,8 @@ services:
     depends_on:
       hxpr-app:
         condition: service_healthy
+      connector-init:
+        condition: service_completed_successfully
     networks:
       - stack
 

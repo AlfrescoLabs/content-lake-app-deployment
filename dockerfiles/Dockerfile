@@ -11,7 +11,7 @@
 #       code: "${CONTENT_LAKE_GIT_CONTEXT:-...}"
 #
 # Targets: batch-ingester, live-ingester, rag-service, nuxeo-batch-ingester, nuxeo-live-ingester,
-#          plugin-batch-ingester, mock-graph
+#          plugin-batch-ingester, connectors, mock-graph
 #
 # The filesystem source is no longer among them: it ships as a connector jar (content-lake-app#148), which
 # is what removed a stage pair and three poms lines from this file rather than adding to them.
@@ -237,6 +237,31 @@ USER app
 EXPOSE 9096
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:9096/actuator/health || exit 1
+
+
+############################################################
+# connectors: the shipped connector jars, for connector-init
+#
+# Built from the same `code` context as the services, so a jar always matches the SPI of the
+# plugin-batch-ingester next to it. plugins/ stays outside the reactor, as the note under `poms` says:
+# this stage installs content-lake-spi and then builds plugins/pom.xml on its own, as that pom
+# documents, instead of adding the connectors to the module list. The jars are renamed to
+# <source type>-connector.jar, so connector-init can pick one by CONNECTOR_SOURCE_TYPE. `clean` drops a
+# target/ folder that a local `code` context may carry, so an old jar is never the one picked.
+############################################################
+FROM poms AS build-connectors
+COPY --from=code common/content-lake-spi/src common/content-lake-spi/src
+COPY --from=code plugins plugins
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -q -B -DskipTests -pl common/content-lake-spi -am install \
+ && mvn -q -B -DskipTests -f plugins/pom.xml -pl filesystem-connector,cmis-connector,sharepoint-connector clean package
+RUN mkdir -p /connectors \
+ && for t in filesystem cmis sharepoint; do \
+      cp "$(ls -1 plugins/$t-connector/target/$t-connector-*.jar | grep -v 'original' | head -n 1)" /connectors/$t-connector.jar; \
+    done
+
+FROM alpine:3.22 AS connectors
+COPY --from=build-connectors /connectors/ /connectors/
 
 
 ############################################################

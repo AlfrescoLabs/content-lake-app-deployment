@@ -37,9 +37,12 @@ curl -u admin:admin -X POST http://localhost:9096/api/sync/configured
 curl -u admin:admin http://localhost:9096/api/status
 ```
 
-That service has no source of its own, so with this directory empty it fails to start rather than running
-as a sync API that ingests nothing. With several jars mounted, set `CONNECTOR_SOURCE_TYPE` to say which one
-to ingest with.
+That service has no source of its own. It does not mount this directory directly: the one-shot
+`connector-init` copies the jars from here into a volume before it starts, or, when this directory holds no
+jar, the shipped connector of `CONNECTOR_SOURCE_TYPE` (`filesystem`, `cmis` or `sharepoint`), built by the
+`connectors` stage of `dockerfiles/Dockerfile`. With neither it fails and says why, rather than running a
+sync API that ingests nothing. With several jars here, set `CONNECTOR_SOURCE_TYPE` to say which one to
+ingest with.
 
 Where the walk starts: a connector that implements `ContentSourceClient.getRootNodeId()` says so itself and
 needs nothing configured. Otherwise set `CONNECTOR_ROOTS` to one or more node ids, comma separated.

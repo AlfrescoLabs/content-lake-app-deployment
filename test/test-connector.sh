@@ -221,8 +221,14 @@ info "Building from CONTENT_LAKE_GIT_CONTEXT=${CONTENT_LAKE_GIT_CONTEXT}"
 # dependencies included, so it rebuilds every dependency image, including the slow ACS image.
 # `--no-deps` then starts only this service, since the base stack is
 # already up and healthy.
-if ! dc build plugin-batch-ingester; then
+if ! dc build connector-init plugin-batch-ingester; then
   fail "T3: plugin-batch-ingester image did not build"
+  exit 1
+fi
+# connector-init copies the jars of ./connectors into the volume that plugin-batch-ingester loads from.
+# `--no-deps` below would skip it, so it runs to completion first.
+if ! dc run --rm --no-deps connector-init >/dev/null; then
+  fail "T3: connector-init did not put the connector jar in place"
   exit 1
 fi
 if ! dc up -d --no-deps plugin-batch-ingester; then

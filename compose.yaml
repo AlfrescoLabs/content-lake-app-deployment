@@ -14,6 +14,8 @@ volumes:
   # Writable state for a plugin connector on plugin-batch-ingester (change cursors, delta tokens).
   # Only attached by the opt-in `connector` profile, so it is unused by every base deployment.
   connector-state-data:
+  # The connector jars that plugin-batch-ingester loads, filled by connector-init on every start.
+  connector-jars:
 
 # ─── Compose modules ──────────────────────────────────────────────────────────
 #

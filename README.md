@@ -44,8 +44,8 @@ make up-demo           # full + standalone demo UI at /  (~19 services)
 ```
 
 A mounted directory is one of those plugins since `content-lake-app#148`, in place of the retired
-`filesystem` profile. Build `plugins/filesystem-connector` into [`connectors/`](connectors/), mount the
-content at `CONNECTOR_HOST_PATH` (default `./filesystem-data`), and set `CONNECTOR_SOURCE_TYPE=filesystem`.
+`filesystem` profile. Mount the content at `CONNECTOR_HOST_PATH` (default `./filesystem-data`) and set
+`CONNECTOR_SOURCE_TYPE=filesystem`: the stack builds the shipped connector itself, as described below.
 The `FILESYSTEM_*` setting names are unchanged, so an existing configuration carries over; the sync API is
 guarded by `CONNECTOR_SYNC_USERNAME` and `CONNECTOR_SYNC_PASSWORD` rather than the retired
 `FILESYSTEM_SYNC_*` pair, because a filesystem has no user directory to authenticate callers against and
@@ -66,7 +66,11 @@ curl -u admin:admin http://localhost:9096/api/connectors
 curl -u admin:admin -X POST http://localhost:9096/api/sync/configured
 ```
 
-Its source is that jar, so with `connectors/` empty it fails to start rather than idling. Set
+Its source is that jar. A one-shot `connector-init` service puts it in place before the service starts:
+the jars in [`connectors/`](connectors/) when there are any, otherwise the shipped connector of
+`CONNECTOR_SOURCE_TYPE` (`filesystem`, `cmis` or `sharepoint`). The `connectors` stage of
+`dockerfiles/Dockerfile` builds the shipped jars from the same `code` context as the services, so no Maven
+run on the host is needed. With neither, `connector-init` fails and says why. Set
 `CONNECTOR_SOURCE_TYPE` when several jars are mounted, and `CONNECTOR_ROOTS` when the connector does not
 name its own root container. Its sync API is guarded by one configured account, from
 `CONNECTOR_SYNC_USERNAME` and `CONNECTOR_SYNC_PASSWORD`, with no defaults.
@@ -256,7 +260,7 @@ Note that the connector's own settings still have to reach the service. A plugin
 names it needs and reads them from the ingester's environment, so they are passed like any other setting.
 
 Three connectors ship with the project, and `plugin-batch-ingester` already declares the settings of all
-three, so each needs only its jar and its values:
+three, so each needs only `CONNECTOR_SOURCE_TYPE` and its values:
 
 | Connector | Source | Notes |
 |---|---|---|
