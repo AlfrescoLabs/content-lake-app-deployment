@@ -68,7 +68,7 @@ services:
         -Ddb.password=${POSTGRES_PASSWORD}
         -Ddb.driver=org.postgresql.Driver
         -Ddb.url=jdbc:postgresql://postgres:5432/${POSTGRES_DB}
-        -Dalfresco_user_store.adminpassword=209c6174da490caeb422f3fa5a7ae634
+        -Dalfresco_user_store.adminpassword=${ALFRESCO_ADMIN_PASSWORD_HASH:-209c6174da490caeb422f3fa5a7ae634}
         -Dsystem.preferred.password.encoding=bcrypt10
         -Dindex.subsystem.name=elasticsearch
         -Delasticsearch.host=opensearch

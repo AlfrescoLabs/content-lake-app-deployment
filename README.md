@@ -476,6 +476,16 @@ someone else, change at least these:
 empty and the service refuses to start until you supply them, because the endpoint they guard
 triggers a full re-ingest. Put overrides for any of the above in `.env.local`, which is not tracked.
 
+`ALFRESCO_ADMIN_PASSWORD` only tells the ingesters and `rag-service` which password to use. Alfresco
+itself takes its admin password from `ALFRESCO_ADMIN_PASSWORD_HASH` (`ALFRESCO_2_ADMIN_PASSWORD_HASH`
+for the `alfresco-2` instance, which `ALFRESCO_2_INTERNAL_PASSWORD` must match), and only at the first
+boot of an empty database: a later change has no effect. The value is the MD4 hash of the password in
+UTF-16LE, and the default is the hash of `admin`. OpenSSL 3 and later need the legacy provider for MD4:
+
+```bash
+printf '%s' "$PASSWORD" | iconv -f UTF-8 -t UTF-16LE | openssl dgst -provider legacy -provider default -md4
+```
+
 ## First Run
 
 1. Enable Docker Model Runner in Docker Desktop.
