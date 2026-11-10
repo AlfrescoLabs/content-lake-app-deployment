@@ -1,0 +1,67 @@
+# compose.nuxeo-deployment.yaml -- run ../nuxeo-deployment inside this Compose project (opt-in).
+#
+# Without this file nuxeo-deployment is a second project, started on its own, and the stack reaches its
+# Nuxeo through host.docker.internal:8081. With it, one `docker compose up` starts Nuxeo and its database
+# next to the ingesters, on the `stack` network, and the ingesters, rag-service and the proxy call
+# http://nuxeo:8080 directly:
+#
+#   docker compose -f compose.yaml -f compose.nuxeo-deployment.yaml --profile nuxeo up -d
+#
+# The included services have no profile, so add this file only together with the nuxeo, full or demo
+# profile. Their volumes (nuxeo-data, nuxeo-db-data, ...) belong to this project, so a Nuxeo started
+# earlier as its own nuxeo-deployment project keeps its data in that project's volumes and is not reused.
+#
+# Interpolation in the included file sees this project's variables first and ../nuxeo-deployment/.env
+# second. That is what keeps the NUXEO_GIT_* build values of the two repositories in step, but it would
+# also hand this project's POSTGRES_* (the Alfresco database) to the Nuxeo database. So the Nuxeo database
+# settings are set below from their own NUXEO_POSTGRES_* variables.
+include:
+  - path: ../nuxeo-deployment/compose.yaml
+    project_directory: ../nuxeo-deployment
+    env_file: ../nuxeo-deployment/.env
+
+services:
+  nuxeo-db:
+    environment:
+      POSTGRES_DB: ${NUXEO_POSTGRES_DB:-nuxeo}
+      POSTGRES_USER: ${NUXEO_POSTGRES_USER:-nuxeo}
+      POSTGRES_PASSWORD: ${NUXEO_POSTGRES_PASSWORD:-nuxeo}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NUXEO_POSTGRES_USER:-nuxeo} -d ${NUXEO_POSTGRES_DB:-nuxeo}"]
+
+  nuxeo:
+    environment:
+      NUXEO_DB_NAME: ${NUXEO_POSTGRES_DB:-nuxeo}
+      NUXEO_DB_USER: ${NUXEO_POSTGRES_USER:-nuxeo}
+      NUXEO_DB_PWD: ${NUXEO_POSTGRES_PASSWORD:-nuxeo}
+    networks: [default, stack]
+    # The image checks http://localhost:8080/nuxeo/, which redirects to /nuxeo/ui/ and answers 401, so the
+    # container never becomes healthy and `up --wait` fails. runningstatus is Nuxeo's own status page.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/nuxeo/runningstatus || exit 1"]
+    # Still published for the Nuxeo UI and the test suites, now on BIND_IP like every other port.
+    ports: !override
+      - target: 8080
+        published: "${NUXEO_HTTP_PORT:-8081}"
+        host_ip: "${BIND_IP:-0.0.0.0}"
+        protocol: tcp
+
+  nuxeo-batch-ingester:
+    environment:
+      NUXEO_URL: http://nuxeo:8080/nuxeo
+
+  nuxeo-live-ingester:
+    environment:
+      NUXEO_URL: http://nuxeo:8080/nuxeo
+
+  rag-service:
+    environment:
+      NUXEO_URL: http://nuxeo:8080/nuxeo
+
+  proxy:
+    environment:
+      NUXEO_PROXY_UPSTREAM: nuxeo:8080
+    # nginx resolves this upstream once, at startup, so the nuxeo container must exist by then.
+    depends_on:
+      nuxeo:
+        condition: service_started

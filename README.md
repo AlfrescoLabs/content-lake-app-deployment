@@ -211,6 +211,21 @@ To use a Nuxeo somewhere else, set `NUXEO_URL` (the base URL that the Nuxeo inge
 `host:port` that the proxy forwards `/nuxeo/*` to, default `host.docker.internal:8081`). Both are
 resolved inside the containers, so `localhost` means the container itself.
 
+To start Nuxeo with the stack instead, as one project, add the override file
+[`compose.nuxeo-deployment.yaml`](compose.nuxeo-deployment.yaml):
+
+```bash
+docker compose -f compose.yaml -f compose.nuxeo-deployment.yaml --profile nuxeo up -d --wait
+```
+
+It includes `../nuxeo-deployment/compose.yaml`, puts Nuxeo on the `stack` network, and points the
+ingesters, `rag-service` and the proxy at `http://nuxeo:8080`. Port 8081 stays published, on `BIND_IP`.
+The Nuxeo database takes its own `NUXEO_POSTGRES_DB`, `NUXEO_POSTGRES_USER` and `NUXEO_POSTGRES_PASSWORD`
+(default `nuxeo`), because the included file would otherwise get this project's `POSTGRES_*`. The
+volumes belong to this project, so a Nuxeo that ran before as its own `nuxeo-deployment` project keeps
+its data there. Export `COMPOSE_FILE=compose.yaml:compose.nuxeo-deployment.yaml` before running a test
+suite, so its `docker compose` calls see the same services.
+
 ## Compose Layout
 
 The stack is split across five files. `compose.yaml` is the only entrypoint -- it declares shared
@@ -225,6 +240,7 @@ infrastructure (network, named volumes, build secrets) and pulls in the rest via
 | [`compose.ui.yaml`](compose.ui.yaml) | UI and proxy: content-app, content-lake-app-ui (demo only), proxy |
 | [`compose.observability.yaml`](compose.observability.yaml) | Trace backend for the RAG spans: otel-lgtm (`observability` profile) |
 | [`compose.alfresco-2.yaml`](compose.alfresco-2.yaml) | Override file, not included: a second Alfresco instance (`alfresco-2` profile), see [Second Alfresco instance](#second-alfresco-instance-alfresco-2) |
+| [`compose.nuxeo-deployment.yaml`](compose.nuxeo-deployment.yaml) | Override file, not included: runs `../nuxeo-deployment` inside this project, see below |
 
 Always run from the project root using `make` or `docker compose` -- the included files are not
 designed to be run in isolation.
