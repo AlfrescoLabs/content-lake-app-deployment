@@ -408,7 +408,7 @@ services:
       - -c
       - |
           set -e
-          envsubst '$$NGINX_SYNC_DEFAULT_BACKEND $$NGINX_ROOT_DIRECTIVE $$NGINX_CONNECTOR_SOURCE_TYPE $$SERVER_NAME' \
+          envsubst '$$NGINX_SYNC_DEFAULT_BACKEND $$NGINX_ROOT_DIRECTIVE $$NGINX_CONNECTOR_SOURCE_TYPE $$SERVER_NAME $$NUXEO_PROXY_UPSTREAM' \
             < /etc/nginx/conf-template/nginx.conf.template \
             > /tmp/nginx.conf.substituted
           envsubst '$$SERVER_NAME $$ALFRESCO_2_PUBLIC_PORT $$ALFRESCO_2_HTTPS_PORT' \

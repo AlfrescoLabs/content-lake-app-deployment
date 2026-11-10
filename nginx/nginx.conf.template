@@ -177,7 +177,7 @@ http {
         }
 
         location /nuxeo/ {
-            proxy_pass http://host.docker.internal:8081;
+            proxy_pass http://${NUXEO_PROXY_UPSTREAM};
         }
 
         location /share/ {
@@ -354,7 +354,7 @@ http {
         }
 
         location /nuxeo/ {
-            proxy_pass http://host.docker.internal:8081;
+            proxy_pass http://${NUXEO_PROXY_UPSTREAM};
         }
 
         location /share/ {

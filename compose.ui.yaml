@@ -86,6 +86,9 @@ services:
       # which keeps the map valid on a stack with no connector profile rather than emitting an empty map key.
       NGINX_CONNECTOR_SOURCE_TYPE: ${CONNECTOR_SOURCE_TYPE:-__no_connector__}
       SERVER_NAME: ${SERVER_NAME:-localhost}
+      # host:port of the Nuxeo behind /nuxeo/. The default is nuxeo-deployment on the host. It is a literal
+      # upstream, so nginx resolves it once at startup (from /etc/hosts too): the name must exist then.
+      NUXEO_PROXY_UPSTREAM: ${NUXEO_PROXY_UPSTREAM:-host.docker.internal:8081}
       USE_HTTPS: ${USE_HTTPS:-false}
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/conf-template/nginx.conf.template:ro
@@ -95,7 +98,7 @@ services:
       - -c
       - |
           set -e
-          envsubst '$$NGINX_SYNC_DEFAULT_BACKEND $$NGINX_ROOT_DIRECTIVE $$NGINX_CONNECTOR_SOURCE_TYPE $$SERVER_NAME' \
+          envsubst '$$NGINX_SYNC_DEFAULT_BACKEND $$NGINX_ROOT_DIRECTIVE $$NGINX_CONNECTOR_SOURCE_TYPE $$SERVER_NAME $$NUXEO_PROXY_UPSTREAM' \
             < /etc/nginx/conf-template/nginx.conf.template \
             > /tmp/nginx.conf.substituted
           if [ "$$USE_HTTPS" = "true" ] && [ -f /etc/nginx/certs/server.crt ]; then

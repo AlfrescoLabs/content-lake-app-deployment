@@ -405,7 +405,7 @@ services:
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     environment:
-      NUXEO_URL: http://host.docker.internal:8081/nuxeo
+      NUXEO_URL: ${NUXEO_URL:-http://host.docker.internal:8081/nuxeo}
       NUXEO_USERNAME: ${NUXEO_USERNAME:-Administrator}
       NUXEO_PASSWORD: ${NUXEO_PASSWORD:-Administrator}
       NUXEO_SOURCE_ID: ${NUXEO_SOURCE_ID:-local}
@@ -780,7 +780,7 @@ services:
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     environment:
-      NUXEO_URL: http://host.docker.internal:8081/nuxeo
+      NUXEO_URL: ${NUXEO_URL:-http://host.docker.internal:8081/nuxeo}
       NUXEO_USERNAME: ${NUXEO_USERNAME:-Administrator}
       NUXEO_PASSWORD: ${NUXEO_PASSWORD:-Administrator}
       NUXEO_SOURCE_ID: ${NUXEO_SOURCE_ID:-local}

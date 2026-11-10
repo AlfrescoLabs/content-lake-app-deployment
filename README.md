@@ -202,6 +202,11 @@ Important: profiles `nuxeo`, `full`, and `demo` do not start the Nuxeo server it
 forwards `/nuxeo/*` to `http://host.docker.internal:8081`, so if `../nuxeo-deployment` is not
 running you will get `502 Bad Gateway` on `http://localhost/nuxeo/`.
 
+To use a Nuxeo somewhere else, set `NUXEO_URL` (the base URL that the Nuxeo ingesters and
+`rag-service` call, default `http://host.docker.internal:8081/nuxeo`) and `NUXEO_PROXY_UPSTREAM` (the
+`host:port` that the proxy forwards `/nuxeo/*` to, default `host.docker.internal:8081`). Both are
+resolved inside the containers, so `localhost` means the container itself.
+
 ## Compose Layout
 
 The stack is split across five files. `compose.yaml` is the only entrypoint -- it declares shared
