@@ -154,6 +154,7 @@ path is fixed at `/alfresco` and ACA builds its URLs from its ECM host.
 | `ALFRESCO_2_INGESTION_FOLDER_1` | `-root-` | Folder the second batch ingester syncs |
 | `ALFRESCO_2_INGESTER_SOURCE_ID` | empty | `ALFRESCO_SOURCE_ID` of both new ingesters. Empty means the repository id |
 | `ALFRESCO_1_SOURCE_ID` / `ALFRESCO_2_SOURCE_ID` | empty | Repository ids, as `RAG_SOURCES_0_ID` / `RAG_SOURCES_1_ID` |
+| `ALFRESCO_1_DISPLAY_NAME` / `ALFRESCO_2_DISPLAY_NAME` | empty | Names that the demo UI login screen shows, as `RAG_SOURCES_0_DISPLAY_NAME` / `RAG_SOURCES_1_DISPLAY_NAME`. Empty means `Alfresco (<repository id>)` |
 
 Memory. No base service sets a memory limit, and the ACS and transform JVMs size their heap at 80% of
 the memory they see. With the override file loaded, the JVM services of both instances get a
