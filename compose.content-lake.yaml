@@ -373,8 +373,11 @@ services:
       RAG_RERANKER_URL: ${RAG_RERANKER_URL:-}
       RAG_RERANKER_ENABLED: ${RAG_RERANKER_ENABLED:-false}
       RAG_RERANKER_TOP_N: ${RAG_RERANKER_TOP_N:-8}
-      RAG_SOURCE_LINKS_ALFRESCO_TEMPLATE: "/aca/#/search/(viewer:view/{nodeId})?location=%2Frag"
-      RAG_SOURCE_LINKS_NUXEO_TEMPLATE: "/nuxeo/ui/#!/browse{nuxeoPath}"
+      # The link of a source in an answer. The defaults open the ACA and the Nuxeo Web UI of this stack;
+      # an Alfresco outside the stack (alfresco-external) with an ACA of its own sets the Alfresco one to
+      # that ACA, for example "/#/search/(viewer:view/{nodeId})?location=%2Frag" for an ACA served at /.
+      RAG_SOURCE_LINKS_ALFRESCO_TEMPLATE: "${RAG_SOURCE_LINKS_ALFRESCO_TEMPLATE:-/aca/#/search/(viewer:view/{nodeId})?location=%2Frag}"
+      RAG_SOURCE_LINKS_NUXEO_TEMPLATE: "${RAG_SOURCE_LINKS_NUXEO_TEMPLATE:-/nuxeo/ui/#!/browse{nuxeoPath}}"
       # Tracing (#73) and span payloads (#116). A blank endpoint means "create spans, export nothing",
       # which is the application default; with --profile observability, point it at the bundled
       # collector: http://otel-lgtm:4318/v1/traces

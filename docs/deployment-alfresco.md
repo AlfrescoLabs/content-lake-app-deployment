@@ -164,6 +164,7 @@ Then point the stack at it in `.env.local` and start the profile:
 | `ACTIVEMQ_USER` / `ACTIVEMQ_PASSWORD` | from `.env` | Login on that broker: read `alfresco.repo.event2`, read and write the ACL queue |
 | `ALFRESCO_ADMIN_USER` / `ALFRESCO_ADMIN_PASSWORD` | from `.env` | Service account of the ingesters and `rag-service`. It reads every node with its permissions and the groups of each caller, and writes `cl:syncStatus` and `cl:indexed`, so it is an administrator in practice |
 | `TRANSFORM_ACTIVEMQ_URL` | `nio://activemq:61616` | Broker of `transform-core-aio`. Set `false` here: there is no bundled broker, and without one the JMS client retries and logs an error every few seconds |
+| `RAG_SOURCE_LINKS_ALFRESCO_TEMPLATE` | `/aca/#/search/(viewer:view/{nodeId})?location=%2Frag` | Link of an Alfresco source in an answer. The default opens the ACA of this stack; with an ACA of your own at `/`, use `/#/search/(viewer:view/{nodeId})?location=%2Frag` |
 | `ALFRESCO_PROXY_UPSTREAM` | `alfresco:8080` | `host:port` behind `/alfresco/` and `/api-explorer/`. nginx resolves it per request through Docker DNS, so use a name that DNS answers or an IP address, not an `extra_hosts` entry |
 
 ```bash
