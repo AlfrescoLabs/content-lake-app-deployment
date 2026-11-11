@@ -4,7 +4,7 @@
 # the other seven are the service images in dockerfiles/Dockerfile. This one is not an App for OpenArch
 # service at all, it is the Alfresco repository with the App for OpenArch content model installed into it.
 #
-# It names common/content-lake-repo-model twice, below. If that module moves, both lines change.
+# It names common/content-lake-repo-model three times, below. If that module moves, all three change.
 # Unlike the service images it copies the whole source context rather than enumerating POMs, so adding
 # or renaming any OTHER module does not affect it.
 #
@@ -29,7 +29,20 @@ RUN --mount=type=cache,target=/root/.m2 \
     mvn -q -DskipTests -pl common/content-lake-repo-model -am package
 
 ############################################
-# Stage 2: Alfresco with the model JAR
+# Stage 2: the model JAR alone, for an Alfresco outside the stack
+############################################
+# Not built by compose: the alfresco service builds the last stage. Export the JAR of this commit with
+#   docker build --target model-jar --build-arg ALFRESCO_TAG=26.2.0 \
+#     --build-context content_lake_app=<context> --output type=local,dest=<dir> acs/alfresco
+# and install it in the other repository as docs/deployment-alfresco.md describes. ALFRESCO_TAG is needed
+# because BuildKit parses every FROM line, also of a stage it does not build. This stage must stay before
+# the last one, or it becomes the default target.
+FROM scratch AS model-jar
+
+COPY --from=model-build /src/common/content-lake-repo-model/target/content-lake-repo-model-*.jar /
+
+############################################
+# Stage 3: Alfresco with the model JAR
 ############################################
 FROM alfresco/alfresco-content-repository-community:${ALFRESCO_TAG}
 

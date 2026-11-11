@@ -1,7 +1,7 @@
 # compose.content-lake.yaml — App for OpenArch ingestion and RAG services
 # Part of the content-lake-app stack; loaded via include: in compose.yaml.
-# Profiles: alfresco, full, demo (Alfresco ingesters + live ingester); nuxeo, full, demo (Nuxeo ingesters + live ingester);
-#           all profiles (rag-service)
+# Profiles: alfresco, full, demo, alfresco-external (Alfresco ingesters + live ingester); nuxeo, full, demo (Nuxeo
+#           ingesters + live ingester); all profiles (rag-service)
 #
 # Build approach: each service uses a local Dockerfile in dockerfiles/<service>/ that pulls
 # app source via additional_context "code" (CONTENT_LAKE_GIT_CONTEXT -- remote Git URL or
@@ -13,7 +13,7 @@ services:
   # ── Alfresco ingesters ──────────────────────────────────────────────────────
 
   batch-ingester:
-    profiles: [alfresco, full, demo]
+    profiles: [alfresco, full, demo, alfresco-external]
     image: content-lake-app/batch-ingester:local
     build:
       context: .
@@ -25,7 +25,9 @@ services:
       ACTIVEMQ_URL: ${CONTENT_LAKE_PERMISSION_SYNC_BROKER_URL:-tcp://activemq:61616}
       ACTIVEMQ_USER: ${ACTIVEMQ_USER}
       ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD}
-      ALFRESCO_URL: http://alfresco:8080
+      # The bundled repository by default. alfresco-external points it at an Alfresco outside the stack;
+      # rag-service reads the same variable, so the callers authenticate against that one too.
+      ALFRESCO_URL: ${ALFRESCO_URL:-http://alfresco:8080}
       ALFRESCO_INTERNAL_USERNAME: ${ALFRESCO_ADMIN_USER}
       ALFRESCO_INTERNAL_PASSWORD: ${ALFRESCO_ADMIN_PASSWORD}
       HXPR_URL: http://hxpr-app:8080
@@ -74,8 +76,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      # Not required: the alfresco-external profile has no bundled repository to wait for.
       alfresco:
         condition: service_healthy
+        required: false
       hxpr-app:
         condition: service_healthy
     networks:
@@ -83,7 +87,7 @@ services:
 
   # Alfresco live ingester (real-time event-driven sync via ActiveMQ)
   live-ingester:
-    profiles: [alfresco, full, demo]
+    profiles: [alfresco, full, demo, alfresco-external]
     image: content-lake-app/live-ingester:local
     build:
       context: .
@@ -92,11 +96,14 @@ services:
       additional_contexts:
         code: "${CONTENT_LAKE_GIT_CONTEXT:-https://github.com/AlfrescoLabs/content-lake-app.git#main}"
     environment:
-      ACTIVEMQ_URL: tcp://activemq:61616
+      # The broker the repository publishes Event2 to: the bundled one by default.
+      ACTIVEMQ_URL: ${ALFRESCO_EVENT_BROKER_URL:-tcp://activemq:61616}
       ACTIVEMQ_USER: ${ACTIVEMQ_USER}
       ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD}
       ALFRESCO_EVENT_TOPIC: alfresco.repo.event2
-      ALFRESCO_URL: http://alfresco:8080
+      # The bundled repository by default. alfresco-external points it at an Alfresco outside the stack;
+      # rag-service reads the same variable, so the callers authenticate against that one too.
+      ALFRESCO_URL: ${ALFRESCO_URL:-http://alfresco:8080}
       ALFRESCO_INTERNAL_USERNAME: ${ALFRESCO_ADMIN_USER}
       ALFRESCO_INTERNAL_PASSWORD: ${ALFRESCO_ADMIN_PASSWORD}
       HXPR_URL: http://hxpr-app:8080
@@ -132,8 +139,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      # Not required: the alfresco-external profile has no bundled repository to wait for.
       alfresco:
         condition: service_healthy
+        required: false
       hxpr-app:
         condition: service_healthy
     networks:
@@ -142,7 +151,7 @@ services:
   # ── RAG service ─────────────────────────────────────────────────────────────
 
   rag-service:
-    profiles: [alfresco, nuxeo, full, demo, platform]
+    profiles: [alfresco, nuxeo, full, demo, platform, alfresco-external]
     image: content-lake-app/rag-service:local
     restart: unless-stopped
     build:

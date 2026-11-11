@@ -10,7 +10,7 @@
 services:
 
   mongodb:
-    profiles: [alfresco, nuxeo, full, demo, platform]
+    profiles: [alfresco, nuxeo, full, demo, platform, alfresco-external]
     image: mongo:${MONGODB_TAG:-8.2.5}
     restart: unless-stopped
     hostname: mongo
@@ -26,7 +26,7 @@ services:
       - stack
 
   opensearch:
-    profiles: [alfresco, nuxeo, full, demo, platform]
+    profiles: [alfresco, nuxeo, full, demo, platform, alfresco-external]
     image: opensearchproject/opensearch:${OPENSEARCH_TAG:-2.19.6}
     restart: unless-stopped
     hostname: opensearch
@@ -63,7 +63,7 @@ services:
       - stack
 
   hxpr-app:
-    profiles: [alfresco, nuxeo, full, demo, platform]
+    profiles: [alfresco, nuxeo, full, demo, platform, alfresco-external]
     image: "ghcr.io/hyland/openarch-app-jvm:${OPENARCH_VERSION:-1.0.55}"
     restart: unless-stopped
     environment:

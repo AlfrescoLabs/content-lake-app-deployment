@@ -43,6 +43,10 @@ make up-full           # Alfresco + Nuxeo + HXPR + RAG  (~18 services)
 make up-demo           # full + standalone demo UI at /  (~19 services)
 ```
 
+`alfresco-external` runs the Alfresco ingesters against an Alfresco outside the stack, instead of the
+bundled one. [docs/deployment-alfresco.md](docs/deployment-alfresco.md#an-alfresco-outside-the-stack)
+lists what that Alfresco needs and the variables that point the stack at it.
+
 A mounted directory is one of those plugins since `content-lake-app#148`, in place of the retired
 `filesystem` profile. Mount the content at `CONNECTOR_HOST_PATH` (default `./filesystem-data`) and set
 `CONNECTOR_SOURCE_TYPE=filesystem`: the stack builds the shipped connector itself, as described below.

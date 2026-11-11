@@ -127,6 +127,68 @@ repository module has published the queue message and `batch-ingester` has updat
 
 ---
 
+## An Alfresco Outside the Stack
+
+The `alfresco-external` profile ingests from an Alfresco that runs somewhere else, instead of the bundled
+one. It runs the Alfresco ingesters, `transform-core-aio`, ACA, Hyland OpenArch, `rag-service` and the
+proxy, and none of `alfresco`, `postgres`, `activemq`, `batch-indexer` and `control-center`
+(`make verify-profiles` checks both lists).
+
+The other Alfresco needs what [Alfresco Requirements](#alfresco-requirements) lists. In practice:
+
+1. Build the model JAR of this commit, with no Maven on the host:
+
+   ```bash
+   docker build --target model-jar --build-arg ALFRESCO_TAG=26.2.0 \
+     --build-context content_lake_app=https://github.com/AlfrescoLabs/content-lake-app.git#main \
+     --output type=local,dest=./model-jar acs/alfresco
+   ```
+
+2. Copy `content-lake-repo-model-*.jar` into `webapps/alfresco/WEB-INF/lib/` of that repository, or into
+   the image that runs it.
+3. Set the module properties in its `alfresco-global.properties`, with the broker that the stack reaches:
+   `content.lake.permission.sync.enabled=true`, `content.lake.permission.sync.broker-url`,
+   `content.lake.permission.sync.broker-user`, `content.lake.permission.sync.broker-password`, and
+   `content.lake.permission.sync.queue-name` if it is not `contentlake.acl.changed`.
+4. With Alfresco Search Community, add the `cl` prefix to the prefixes file of its batch indexer, as
+   [Search: OpenSearch](#search-opensearch-alfresco-search-community) explains.
+5. Restart the repository.
+
+Then point the stack at it in `.env.local` and start the profile:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ALFRESCO_URL` | `http://alfresco:8080` | Repository URL for both ingesters and `rag-service`, as the containers reach it |
+| `ALFRESCO_EVENT_BROKER_URL` | `tcp://activemq:61616` | Broker that the repository sends Event2 to, for `live-ingester` |
+| `CONTENT_LAKE_PERMISSION_SYNC_BROKER_URL` | `tcp://activemq:61616` | Broker of the ACL queue, for `batch-ingester` |
+| `ACTIVEMQ_USER` / `ACTIVEMQ_PASSWORD` | from `.env` | Login on that broker: read `alfresco.repo.event2`, read and write the ACL queue |
+| `ALFRESCO_ADMIN_USER` / `ALFRESCO_ADMIN_PASSWORD` | from `.env` | Service account of the ingesters and `rag-service`. It reads every node with its permissions and the groups of each caller, and writes `cl:syncStatus` and `cl:indexed`, so it is an administrator in practice |
+| `TRANSFORM_ACTIVEMQ_URL` | `nio://activemq:61616` | Broker of `transform-core-aio`. Set `false` here: there is no bundled broker, and without one the JMS client retries and logs an error every few seconds |
+| `ALFRESCO_PROXY_UPSTREAM` | `alfresco:8080` | `host:port` behind `/alfresco/` and `/api-explorer/`. nginx resolves it per request through Docker DNS, so use a name that DNS answers or an IP address, not an `extra_hosts` entry |
+
+```bash
+docker compose --profile alfresco-external up -d
+```
+
+For example, an ACS 26.2 made by [alfresco-docker-installer](https://github.com/aborroy/alfresco-docker-installer)
+with `--searchType=opensearch --activemq=true` needs four changes:
+
+- the JAR in `alfresco/modules/jars/`, which its Dockerfile copies into `WEB-INF/lib`;
+- the `-Dcontent.lake.permission.sync.*` properties in `JAVA_OPTS` of `alfresco`, with
+  `broker-url=tcp://activemq:61616` and the ActiveMQ login of that installation;
+- a published broker port on `activemq` (for example `127.0.0.1:61616:61616`), because it publishes none;
+- `ALFRESCO_REINDEX_PREFIXES_FILE` and a mount of `acs/search/reindex.prefixes-file.json` on `batch-indexer`.
+
+The stack then reaches it through the host: `ALFRESCO_URL=http://host.docker.internal:<port>` (its proxy
+serves `/alfresco/`), `ALFRESCO_PROXY_UPSTREAM=host.docker.internal:<port>`, and both broker URLs
+`tcp://host.docker.internal:61616`. On Linux, `host.docker.internal` is an `extra_hosts` entry, which the
+proxy does not see (see `ALFRESCO_PROXY_UPSTREAM` above): use the host IP there.
+
+`transform-core-aio` stays in the stack: the ingesters extract text through it over HTTP, and it does
+not need the bundled broker for that. Its healthcheck calls `/ready`, which runs a test transform, because
+`/actuator/health` also reports the JMS connection and stays DOWN without a broker. The bundled `ALFRESCO_ADMIN_PASSWORD_HASH` is not used, because
+there is no bundled repository to bootstrap.
+
 ## Triggering a Sync
 
 The proxy forwards the caller's own `Authorization` header to the ingester, which validates it

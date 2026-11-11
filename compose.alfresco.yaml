@@ -164,11 +164,15 @@ services:
       - stack
 
   transform-core-aio:
-    profiles: [alfresco, full, demo]
+    # Also in alfresco-external: the ingesters extract text through it, and an Alfresco outside the stack
+    # may not expose its own. It transforms over HTTP without the bundled broker.
+    profiles: [alfresco, full, demo, alfresco-external]
     image: alfresco/alfresco-transform-core-aio:${TRANSFORM_ENGINE_TAG:-5.2.4}
     restart: unless-stopped
     environment:
-      ACTIVEMQ_URL: nio://activemq:61616
+      # The bundled broker, for asynchronous transforms. false turns the JMS client off, which is what
+      # alfresco-external wants: it has no bundled broker, and the ingesters transform over HTTP.
+      ACTIVEMQ_URL: ${TRANSFORM_ACTIVEMQ_URL:-nio://activemq:61616}
       ACTIVEMQ_USER: ${ACTIVEMQ_USER:-admin}
       ACTIVEMQ_PASSWORD: ${ACTIVEMQ_PASSWORD:-admin}
       JAVA_OPTS: >-
@@ -178,8 +182,11 @@ services:
     depends_on:
       activemq:
         condition: service_healthy
+        required: false
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8090/actuator/health || exit 1"]
+      # /ready runs a test transform. /actuator/health also reports the JMS connection, which is DOWN
+      # whenever no broker is reachable, although HTTP transforms work.
+      test: ["CMD-SHELL", "curl -sf http://localhost:8090/ready || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 5

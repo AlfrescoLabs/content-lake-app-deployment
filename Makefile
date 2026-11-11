@@ -306,7 +306,7 @@ verify-profiles: ## Assert every opt-in profile stays opt-in (no service leaks i
 	@# deployment would suddenly need it. Compose resolves profiles here, so this catches a missing or
 	@# mistyped `profiles:` key that inspection would not.
 	@fail=0; \
-	for profile in alfresco nuxeo full demo platform; do \
+	for profile in alfresco nuxeo full demo platform alfresco-external; do \
 	  services=$$($(DC) --profile $$profile config --services 2>/dev/null | sort | tr '\n' ' '); \
 	  for optin in otel-lgtm plugin-batch-ingester connector-init opensearch-dashboards transform-liteparse transform-convert2md mock-graph; do \
 	    case " $$services " in \
@@ -323,7 +323,7 @@ verify-profiles: ## Assert every opt-in profile stays opt-in (no service leaks i
 	    *) echo "FAIL: --profile $$profile does not add $$service"; fail=1 ;; \
 	  esac; \
 	done; \
-	for profile in alfresco nuxeo full demo platform; do \
+	for profile in alfresco nuxeo full demo platform alfresco-external; do \
 	  services=$$($(DC_ALL) --profile $$profile config --services 2>/dev/null | sort | tr '\n' ' '); \
 	  for optin in $(ALFRESCO_2_SERVICES); do \
 	    case " $$services " in \
@@ -339,6 +339,19 @@ verify-profiles: ## Assert every opt-in profile stays opt-in (no service leaks i
 	    *) echo "FAIL: --profile alfresco-2 does not add $$service"; fail=1 ;; \
 	  esac; \
 	done; \
+	services=$$($(DC) --profile alfresco-external config --services 2>/dev/null | tr '\n' ' '); \
+	for bundled in alfresco postgres activemq batch-indexer control-center; do \
+	  case " $$services " in \
+	    *" $$bundled "*) echo "FAIL: $$bundled is in the 'alfresco-external' profile, which uses an Alfresco outside the stack"; fail=1 ;; \
+	  esac; \
+	done; \
+	for needed in batch-ingester live-ingester transform-core-aio rag-service proxy; do \
+	  case " $$services " in \
+	    *" $$needed "*) ;; \
+	    *) echo "FAIL: --profile alfresco-external does not run $$needed"; fail=1 ;; \
+	  esac; \
+	done; \
+	echo "ok: profile 'alfresco-external' has no bundled Alfresco service"; \
 	exit $$fail
 
 # ── Internal ──────────────────────────────────────────────────────────────────

@@ -72,7 +72,7 @@ http {
         set $batch_ingester_upstream batch-ingester:9090;
         set $rag_service_upstream    rag-service:9091;
         set $control_center_upstream control-center:8080;
-        set $alfresco_upstream       alfresco:8080;
+        set $alfresco_upstream       ${ALFRESCO_PROXY_UPSTREAM};
         set $share_upstream          share:8080;
         set $content_app_upstream    content-app:8080;
         set $demo_ui_upstream        content-lake-app-ui:80;
@@ -249,7 +249,7 @@ http {
         set $batch_ingester_upstream batch-ingester:9090;
         set $rag_service_upstream    rag-service:9091;
         set $control_center_upstream control-center:8080;
-        set $alfresco_upstream       alfresco:8080;
+        set $alfresco_upstream       ${ALFRESCO_PROXY_UPSTREAM};
         set $share_upstream          share:8080;
         set $content_app_upstream    content-app:8080;
         set $demo_ui_upstream        content-lake-app-ui:80;
