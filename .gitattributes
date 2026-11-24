@@ -1,0 +1,2 @@
+# Shell scripts and config files run inside Linux containers or bash, so keep LF on every OS.
+* text=auto eol=lf
