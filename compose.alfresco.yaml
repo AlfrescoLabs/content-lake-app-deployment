@@ -199,7 +199,9 @@ services:
     profiles: [alfresco, full, demo]
     image: quay.io/alfresco/alfresco-control-center:${CONTROL_CENTER_TAG:-10.2.0}
     environment:
-      APP_CONFIG_ECM_HOST: ${PUBLIC_BASE_URL:-http://${SERVER_NAME:-localhost}:${PUBLIC_PORT:-80}}
+      # Empty keeps ecmHost as {protocol}//{hostname}{:port}, the origin of the page. A fixed host breaks
+      # login from any other host name (CORS), for example 127.0.0.1 instead of localhost.
+      APP_CONFIG_ECM_HOST: ${PUBLIC_BASE_URL:-}
       APP_CONFIG_AUTH_TYPE: BASIC
       APP_CONFIG_PROVIDER: ECM
       BASE_PATH: /admin
