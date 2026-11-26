@@ -168,6 +168,16 @@ http {
             proxy_pass http://$alfresco_upstream;
         }
 
+        # The repository REST API. With alfresco.restApi.basicAuthScheme=true, a 401 (for example an ACA
+        # ticket that expired after an hour without activity) carries a Basic challenge, and the browser
+        # then raises its own password box over ACA. Credentials typed there do not replace the expired
+        # ticket ACA keeps sending. Hiding the header lets ACA handle the 401 itself. Other /alfresco/
+        # paths (web scripts, WebDAV) keep the challenge, because a browser opened on them needs it.
+        location /alfresco/api/ {
+            proxy_pass http://$alfresco_upstream;
+            proxy_hide_header WWW-Authenticate;
+        }
+
         location /api-explorer/ {
             proxy_pass http://$alfresco_upstream;
         }
@@ -343,6 +353,16 @@ http {
 
         location /alfresco/ {
             proxy_pass http://$alfresco_upstream;
+        }
+
+        # The repository REST API. With alfresco.restApi.basicAuthScheme=true, a 401 (for example an ACA
+        # ticket that expired after an hour without activity) carries a Basic challenge, and the browser
+        # then raises its own password box over ACA. Credentials typed there do not replace the expired
+        # ticket ACA keeps sending. Hiding the header lets ACA handle the 401 itself. Other /alfresco/
+        # paths (web scripts, WebDAV) keep the challenge, because a browser opened on them needs it.
+        location /alfresco/api/ {
+            proxy_pass http://$alfresco_upstream;
+            proxy_hide_header WWW-Authenticate;
         }
 
         location /api-explorer/ {
